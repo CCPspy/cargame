@@ -145,7 +145,8 @@
             this.difficulty = difficulty;
             this.updateDifficulty(difficulty);
 
-            this.resetPos = { x, y, angle }; // Store initial position
+            // FIX: Changed 'angle' to 'initial_angle' as the local argument is named 'initial_angle'
+            this.resetPos = { x, y, angle: initial_angle }; // Store initial position
         }
 
         updateDifficulty(difficulty) {
