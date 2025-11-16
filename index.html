@@ -39,36 +39,91 @@
         .boost-bar {
             transition: width 0.1s ease-out;
         }
+        /* Style for selected menu item */
+        .menu-selected {
+            border: 3px solid #fcd34d;
+            box-shadow: 0 0 15px rgba(252, 211, 77, 0.6);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            color: #fcd34d;
+        }
+        /* Hide menu click targets as requested */
+        #menu-options > div, #upgrade-options > div {
+             cursor: default;
+        }
+        .upgrade-icon-container {
+            position: relative;
+        }
+        .upgrade-tooltip {
+            visibility: hidden;
+            background-color: #1f2937;
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 10;
+            bottom: 120%; /* Position above the icon */
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .upgrade-icon-container:hover .upgrade-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
 
 <div id="game-container" class="bg-gray-800 p-4 sm:p-6 lg:p-8">
+    <!-- Top Bar for Pause Button -->
+    <div id="top-bar" class="w-full mb-4 flex justify-end">
+        <button id="pause-btn" onclick="togglePause()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
+            <span class="mr-2">⏸️</span> Pause (P)
+        </button>
+    </div>
+
     <!-- Game Canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Overlay for Menus and End Screen -->
+    <!-- Overlay for Menus, Upgrades, and End Screen -->
     <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90 transition-opacity duration-300">
         <!-- Menu Content Goes Here -->
     </div>
 
-    <!-- UI Panel (Score/Boost) -->
+    <!-- UI Panel (Score/Boost/Difficulty) -->
     <div id="ui-panel" class="w-full mt-4 p-4 bg-gray-700 rounded-lg shadow-lg hidden">
         <div class="flex justify-between items-center text-xl font-bold">
             <div id="score-left" class="text-blue-400">BLUE: 0</div>
-            <div id="timer" class="text-white text-3xl font-mono">02:00</div>
+            <div id="center-info" class="text-center">
+                <div id="timer" class="text-white text-3xl font-mono">02:00</div>
+                <div id="mode-info" class="text-sm text-gray-300 mt-1">TIME REMAINING</div>
+            </div>
             <div id="score-right" class="text-red-400">RED: 0</div>
         </div>
-        <div class="flex justify-center mt-3 space-x-8">
-            <div id="player-1-boost" class="text-center">
-                <p class="text-sm text-gray-300">P1 Boost (W/A/S/D | Shift)</p>
-                <div class="w-40 h-3 bg-gray-600 rounded-full overflow-hidden">
-                    <div id="p1-boost-fill" class="boost-bar h-full bg-orange-500 rounded-full" style="width: 100%;"></div>
+    </div>
+
+    <!-- Forever Mode Status Panel -->
+    <div id="forever-status-panel" class="w-full mt-4 p-4 bg-gray-700 rounded-lg shadow-lg hidden">
+        <h3 class="text-xl font-bold mb-3 text-cyan-400">Forever Mode Status</h3>
+        <div class="flex flex-wrap justify-between items-start">
+            <div class="w-full md:w-1/3 mb-4 md:mb-0">
+                <h4 class="font-semibold text-gray-300">AI Challenge</h4>
+                <p id="ai-status" class="text-2xl font-bold text-red-400">LV 1 (1 Car)</p>
+            </div>
+            <div class="w-full md:w-2/3">
+                <h4 class="font-semibold text-gray-300 mb-2">Player Upgrades</h4>
+                <div id="player-upgrades-display" class="flex flex-wrap gap-4">
+                    <!-- Upgrades will be inserted here -->
                 </div>
             </div>
-            <!-- Dynamic UI elements for 2v2 can be added here -->
         </div>
     </div>
+
 </div>
 
 <script>
@@ -77,8 +132,12 @@
     const ctx = canvas.getContext('2d');
     const overlay = document.getElementById('overlay');
     const uiPanel = document.getElementById('ui-panel');
+    const foreverStatusPanel = document.getElementById('forever-status-panel');
+    const pauseBtn = document.getElementById('pause-btn');
 
-    const DEFAULT_WIDTH = 800;
+    // Constants
+    // Adjusted dimensions for better screen fit and goal visibility
+    const DEFAULT_WIDTH = 1000;
     const DEFAULT_HEIGHT = 600;
     const CAR_WIDTH = 60;
     const CAR_HEIGHT = 30;
@@ -88,9 +147,12 @@
     const FPS = 60;
     const MAX_CENTER_OFFSET_FACTOR = 1 / 6;
 
-    let gameState = 'menu';
+    // Game State Variables
+    let gameState = 'menu'; // 'menu', 'end_condition', 'option_value', 'playing', 'paused', 'upgrading', 'finished'
     let gameMode = '1v1 Multiplayer';
-    let timeLimitSeconds = 120; // Default 2 minutes
+    let endConditionType = 'timed'; // 'timed', 'points', 'forever'
+    let timeLimitSeconds = 120;
+    let targetScore = 5;
     let gameTimer = 0;
     let scoreLeft = 0;
     let scoreRight = 0;
@@ -101,6 +163,9 @@
     let keys = {};
     let lastTime = 0;
     let animationFrameId;
+    let aiDifficulty = 1;
+    let playerUpgrades = {}; // { upgradeId: stackCount }
+    let isUpgrading = false; // Flag to prevent multiple upgrade screens
 
     // Colors
     const COLOR_BLUE = '#0066cc';
@@ -112,6 +177,17 @@
     const COLOR_GOAL_LINE_RED = '#e74c3c';
     const COLOR_BOOST_PAD = '#f39c12';
     const COLOR_BOOST_FILL = '#e67e22';
+
+    // --- UPGRADES DATA ---
+    const UPGRADES_POOL = [
+        { id: 'accel', label: 'Engine Boost', icon: '⚡', desc: 'Increases acceleration by 10%.' },
+        { id: 'turn', label: 'Agile Steering', icon: '⚙️', desc: 'Increases rotation speed by 15%.' },
+        { id: 'maxBoost', label: 'Fuel Tank Upgrade', icon: '⛽', desc: 'Increases Max Boost capacity by 20.' },
+        { id: 'boostRegen', label: 'Quick Refuel', icon: '🔋', desc: 'Increases Boost Pad refill by 10.' },
+        { id: 'goalAssist', label: 'Gravity Pull', icon: '🎯', desc: 'Slightly pulls the ball toward opponent goal line.' },
+        { id: 'frictionFix', label: 'Traction Control', icon: '🔒', desc: 'Reduces lateral drift by 10%.' },
+        { id: 'speed', label: 'Nitro Burst', icon: '🚀', desc: 'Increases base top speed by 5%.' }
+    ];
 
     // --- GAME CLASSES ---
 
@@ -130,9 +206,8 @@
 
             this.baseAcceleration = 0.4;
             this.baseMaxSpeed = 6.0;
-            this.rotationSpeed = 4.5;
-            this.linearFriction = 0.96;
-            this.sideFrictionFactor = 0.1;
+            this.baseRotationSpeed = 6.0;
+            this.baseSideFrictionFactor = 0.05;
 
             this.boostPower = 1.8;
             this.boostUsage = 1.2;
@@ -143,21 +218,47 @@
 
             this.ai = ai;
             this.difficulty = difficulty;
+            this.upgrades = {}; // Only used for player car
+
             this.updateDifficulty(difficulty);
 
-            // FIX: Changed 'angle' to 'initial_angle' as the local argument is named 'initial_angle'
             this.resetPos = { x, y, angle: initial_angle }; // Store initial position
         }
 
         updateDifficulty(difficulty) {
+            this.difficulty = difficulty;
             if (this.ai) {
-                // AI gets slightly better acceleration/handling but not necessarily top speed
+                // AI gets smarter (acceleration and boost capacity) but NOT top speed
                 this.acceleration = this.baseAcceleration + 0.05 * (difficulty - 1);
-                this.maxSpeed = this.baseMaxSpeed + 0.1 * (difficulty - 1);
+                this.maxBoost = 100 + 10 * (difficulty - 1);
+                // Reset boost to new max if capacity increased
+                this.boost = Math.min(this.boost, this.maxBoost);
+                this.rotationSpeed = this.baseRotationSpeed; // AI rotation speed is constant
+                this.sideFrictionFactor = this.baseSideFrictionFactor;
             } else {
-                this.acceleration = this.baseAcceleration;
-                this.maxSpeed = this.baseMaxSpeed;
+                this.applyPlayerUpgrades(playerUpgrades); // Re-apply player upgrades
             }
+        }
+
+        applyPlayerUpgrades(upgrades) {
+            if (this.ai) return; // Only apply to player car
+
+            this.upgrades = upgrades;
+            const count = (id) => upgrades[id] || 0;
+
+            // Apply permanent upgrades
+            this.acceleration = this.baseAcceleration * (1 + count('accel') * 0.1);
+            this.rotationSpeed = this.baseRotationSpeed * (1 + count('turn') * 0.15);
+            this.maxBoost = 100 + count('maxBoost') * 20;
+            this.baseMaxSpeed = 6.0 * (1 + count('speed') * 0.05);
+
+            // Friction is reduced by 10% per stack
+            const frictionFactor = 1 - count('frictionFix') * 0.1;
+            this.sideFrictionFactor = this.baseSideFrictionFactor * Math.max(0.1, frictionFactor);
+
+
+            // Reset boost to new max if capacity increased
+            this.boost = Math.min(this.maxBoost, this.boost);
         }
 
         handleInput() {
@@ -194,41 +295,34 @@
                 this.velY -= Math.sin(rad) * accelerationForce;
             }
 
-            // Boost
-            this.boosting = keys[this.controls['boost']] && this.boost > 0;
+            // Boost logic (Dual-Shift for P1 in Vs Computer mode)
+            let boostActive = keys[this.controls['boost']];
+            if (this.playerId === 1 && gameMode === "Vs Computer") {
+                boostActive = keys['ShiftLeft'] || keys['ShiftRight'];
+            }
+
+            this.boosting = boostActive && this.boost > 0;
         }
 
         handleAI() {
             if (!ball) return;
             const center_x = canvas.width / 2;
-            const targetGoalX = this.team_side === 'right' ? BALL_RADIUS + 20 : canvas.width - BALL_RADIUS - 20;
-            const targetGoalY = canvas.height / 2;
+            const safety_distance = 50 + (this.difficulty * 5);
+            const attack_line = this.team_side === 'right' ? center_x + safety_distance : center_x - safety_distance;
 
             let targetX, targetY;
 
             // 1. Determine Target (Defense or Offense)
-            if (this.team_side === 'right') {
-                // Red Team (defends right goal, attacks left goal)
-                if (ball.x > center_x && ball.x > this.x - 50) {
-                    // Ball is on our side or coming towards us, prioritize defense
-                    targetX = center_x + 100;
-                    targetY = ball.y;
-                } else {
-                    // Attack
-                    targetX = ball.x;
-                    targetY = ball.y;
-                }
+            let offensive = this.team_side === 'right' ? ball.x < attack_line : ball.x > attack_line;
+
+            if (offensive) {
+                // Attack: Go for the ball
+                targetX = ball.x;
+                targetY = ball.y;
             } else {
-                // Blue Team (defends left goal, attacks right goal)
-                if (ball.x < center_x && ball.x < this.x + 50) {
-                    // Ball is on our side or coming towards us, prioritize defense
-                    targetX = center_x - 100;
-                    targetY = ball.y;
-                } else {
-                    // Attack
-                    targetX = ball.x;
-                    targetY = ball.y;
-                }
+                // Defense: Go to a defensive position
+                targetX = this.team_side === 'right' ? canvas.width - 150 : 150;
+                targetY = ball.y;
             }
 
             // 2. Calculate Angle to Target
@@ -238,19 +332,19 @@
             let targetAngle = (targetAngleRad * 180 / Math.PI + 360) % 360;
 
             let angleDiff = targetAngle - this.angle;
-            // Normalize angleDiff to be between -180 and 180
             if (angleDiff > 180) angleDiff -= 360;
             if (angleDiff < -180) angleDiff += 360;
 
             const dist = Math.hypot(dx, dy);
 
             // 3. Rotation Logic (Simple)
+            this.rotationSpeed = this.baseRotationSpeed; // Reset to base for AI
             if (angleDiff > this.rotationSpeed) {
                 this.angle = (this.angle + this.rotationSpeed) % 360;
             } else if (angleDiff < -this.rotationSpeed) {
                 this.angle = (this.angle - this.rotationSpeed) % 360;
             } else {
-                this.angle = targetAngle; // Lock on
+                this.angle = targetAngle;
             }
 
             // 4. Movement/Throttle Logic
@@ -262,26 +356,25 @@
                 this.throttleDirection = 1;
             }
 
-            // 5. Boost Logic (Aggressive boosting when aligned and far away)
-            this.boosting = this.boost > 10 && (dist > 250 && Math.abs(angleDiff) < 10);
+            // 5. Boost Logic
+            const boostThreshold = this.maxBoost * 0.1;
+            this.boosting = this.boost > boostThreshold && (dist > 250 && Math.abs(angleDiff) < 10);
             if (this.boosting) {
                  this.throttleDirection = 1;
             }
         }
 
         move() {
-            // Apply Friction and convert velocity back to global coordinates
             const rad = Math.PI * this.angle / 180;
 
-            // 1. Calculate velocity components relative to the car's direction
             let forwardVel = this.velX * Math.cos(rad) - this.velY * Math.sin(rad);
             let sideVel = this.velX * Math.sin(rad) + this.velY * Math.cos(rad);
 
-            // 2. Apply friction
-            sideVel *= this.sideFrictionFactor;
-            forwardVel *= this.linearFriction;
+            // Apply friction (includes side friction factor which is reduced by upgrade)
+            sideVel *= (1 - this.sideFrictionFactor);
+            forwardVel *= 0.96;
 
-            // 3. Apply Boost
+            // Apply Boost
             if (this.boosting && this.boost > 0) {
                 const boostForce = this.acceleration * this.boostPower * 1.5;
                 const boostDirection = this.throttleDirection !== 0 ? this.throttleDirection : 1;
@@ -293,24 +386,24 @@
                 }
             }
 
-            // 4. Recalculate global velocity
+            // Recalculate global velocity
             this.velX = forwardVel * Math.cos(rad) + sideVel * Math.sin(rad);
             this.velY = -forwardVel * Math.sin(rad) + sideVel * Math.cos(rad);
 
-            // 5. Speed Limiter
+            // Speed Limiter
             this.speed = Math.hypot(this.velX, this.velY);
-            const maxSpeed = this.maxSpeed * (this.boosting ? this.boostPower : 1);
+            const maxSpeed = this.baseMaxSpeed * (this.boosting ? this.boostPower : 1);
             if (this.speed > maxSpeed) {
                 const scale = maxSpeed / this.speed;
                 this.velX *= scale;
                 this.velY *= scale;
             }
 
-            // 6. Update position
+            // Update position
             this.x += this.velX;
             this.y += this.velY;
 
-            // 7. Boundary check
+            // Boundary check
             this.x = Math.max(CAR_WIDTH / 2, Math.min(canvas.width - CAR_WIDTH / 2, this.x));
             this.y = Math.max(CAR_HEIGHT / 2, Math.min(canvas.height - CAR_HEIGHT / 2, this.y));
         }
@@ -318,7 +411,7 @@
         draw() {
             ctx.save();
             ctx.translate(this.x, this.y);
-            ctx.rotate(-Math.PI * this.angle / 180); // Rotate based on angle
+            ctx.rotate(-Math.PI * this.angle / 180);
 
             // Car Body
             ctx.fillStyle = this.color;
@@ -326,7 +419,7 @@
             ctx.roundRect(-CAR_WIDTH / 2, -CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT, 8);
             ctx.fill();
 
-            // Accent/Lights (front of the car, which is at -CAR_WIDTH/2)
+            // Accent/Lights
             ctx.fillStyle = 'yellow';
             ctx.beginPath();
             ctx.roundRect(CAR_WIDTH / 2 - 10, -CAR_HEIGHT / 2 + 5, 8, CAR_HEIGHT - 10, 2);
@@ -346,17 +439,45 @@
 
             ctx.restore();
 
-            // Draw player ID text
-            if (!this.ai) {
-                 ctx.fillStyle = 'white';
-                 ctx.font = '16px Inter';
-                 ctx.textAlign = 'center';
-                 ctx.fillText(`P${this.playerId}`, this.x, this.y - 30);
-            }
+            // Draw Boost Bar above car
+            const isHuman = !this.ai;
+            const label = isHuman ? `P${this.playerId}` : `AI Lv.${this.difficulty}`;
+            const labelY = this.y - CAR_HEIGHT / 2 - 15;
+            const barWidth = 40;
+            const barHeight = 6;
+            const boostPercentage = this.boost / this.maxBoost;
+            const boostFillWidth = barWidth * boostPercentage;
+
+            // Text Label
+            ctx.fillStyle = isHuman ? 'white' : COLOR_RED;
+            ctx.font = '12px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, this.x, labelY - 5);
+
+            // Boost Bar Background
+            ctx.fillStyle = '#1f2937';
+            ctx.beginPath();
+            ctx.roundRect(this.x - barWidth / 2, labelY, barWidth, barHeight, 3);
+            ctx.fill();
+
+            // Boost Bar Fill
+            const gradient = ctx.createLinearGradient(this.x - barWidth / 2, 0, this.x - barWidth / 2 + barWidth, 0);
+            gradient.addColorStop(0, boostPercentage < 0.3 ? '#ef4444' : '#f97316');
+            gradient.addColorStop(1, '#f97316');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(this.x - barWidth / 2, labelY, boostFillWidth, barHeight, 3);
+            ctx.fill();
         }
 
         refillBoost(amount) {
-            this.boost = Math.min(this.maxBoost, this.boost + amount);
+            let refill = amount;
+            // Apply player boost regen upgrade only to player 1
+            if (!this.ai && this.playerId === 1 && playerUpgrades.boostRegen) {
+                 refill += playerUpgrades.boostRegen * 10;
+            }
+            this.boost = Math.min(this.maxBoost, this.boost + refill);
         }
 
         reset() {
@@ -367,7 +488,6 @@
             this.velY = 0;
             this.speed = 0;
             this.boost = this.maxBoost;
-            this.updateDifficulty(this.difficulty);
         }
     }
 
@@ -383,6 +503,21 @@
         }
 
         move() {
+            // Apply gravity pull upgrade if active (only affects ball when Player 1 has it)
+            if (gameMode === 'Vs Computer' && endConditionType === 'forever' && playerUpgrades.goalAssist) {
+                const targetX = canvas.width; // Red Goal Line
+                const pullFactor = 0.005 * playerUpgrades.goalAssist;
+
+                const dx = targetX - this.x;
+                const dist = Math.abs(dx);
+                
+                // Only pull when ball is on the player's offensive side (past center line)
+                if (this.x > canvas.width / 2) {
+                    this.velX += Math.sign(dx) * pullFactor * Math.min(100, dist);
+                }
+            }
+
+
             this.x += this.velX;
             this.y += this.velY;
             this.velX *= 0.99;
@@ -395,7 +530,10 @@
                 this.velY *= scale;
             }
 
-            // Wall Collision (Top/Bottom)
+            // Wall Collision (Top/Bottom and Sides outside goals)
+            const goalTop = canvas.height / 2 - GOAL_HEIGHT / 2;
+            const goalBottom = canvas.height / 2 + GOAL_HEIGHT / 2;
+
             if (this.y - this.radius < 0) {
                 this.velY *= -0.8;
                 this.y = this.radius;
@@ -404,18 +542,12 @@
                 this.velY *= -0.8;
                 this.y = canvas.height - this.radius;
             }
-
-            // Wall Collision (Side, outside goals)
-            const goalTop = canvas.height / 2 - GOAL_HEIGHT / 2;
-            const goalBottom = canvas.height / 2 + GOAL_HEIGHT / 2;
-
             if (this.x - this.radius < 0) {
                 if (!(this.y > goalTop && this.y < goalBottom)) {
                     this.velX *= -0.8;
                     this.x = this.radius;
                 }
             }
-
             if (this.x + this.radius > canvas.width) {
                 if (!(this.y > goalTop && this.y < goalBottom)) {
                     this.velX *= -0.8;
@@ -478,22 +610,17 @@
         }
     }
 
-    // --- COLLISION AND GAME LOGIC ---
+    // --- GAME SETUP & LOGIC ---
 
     function getInitialAngle(x1, y1, x2, y2) {
-        // Angle from x1,y1 pointing towards x2,y2
         const angleRad = Math.atan2(y1 - y2, x2 - x1);
         return (angleRad * 180 / Math.PI + 360) % 360;
     }
 
-    function setupGameObjects(mode) {
-        let currentWidth = DEFAULT_WIDTH;
-        let currentHeight = DEFAULT_HEIGHT;
-
-        if (mode === "2v2 Multiplayer") {
-            currentWidth = 1200;
-            currentHeight = 700;
-        }
+    function setupGameObjects(mode, initialAICount = 1) {
+        // Set fixed dimensions for all Vs Computer modes
+        const currentWidth = DEFAULT_WIDTH;
+        const currentHeight = DEFAULT_HEIGHT;
 
         canvas.width = currentWidth;
         canvas.height = currentHeight;
@@ -502,77 +629,66 @@
         const center_y = currentHeight / 2;
 
         ball = new Ball(center_x, center_y, BALL_RADIUS);
-        ball.reset(); // Initial random placement
+        ball.reset();
 
-        // Define Car spawn points relative to canvas size
         const P1_X = 100 + CAR_WIDTH / 2;
         const P2_X = currentWidth - 100 - CAR_WIDTH / 2;
         const P1_Y_OFFSET = CAR_HEIGHT * 2;
 
         cars = [];
 
-        // Single Car placement
-        const single_y = center_y;
-        
-        // Player 1 (Blue)
-        const p1 = new Car(P1_X, single_y, COLOR_BLUE, {
+        // 1. Setup Player 1 (Blue/Left Team) - Always exists in these modes
+        const p1 = new Car(P1_X, center_y, COLOR_BLUE, {
             'up': 'KeyW', 'down': 'KeyS', 'left': 'KeyA', 'right': 'KeyD', 'boost': 'ShiftLeft'
-        }, 'left', 1, getInitialAngle(P1_X, single_y, center_x, center_y));
-        cars.push(p1);
+        }, 'left', 1, getInitialAngle(P1_X, center_y, center_x, center_y));
 
-        if (mode === "1v1 Multiplayer") {
-            // Player 2 (Red)
-            const p2 = new Car(P2_X, single_y, COLOR_RED, {
-                'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ShiftRight'
-            }, 'right', 2, getInitialAngle(P2_X, single_y, center_x, center_y));
-            cars.push(p2);
-        } else if (mode === "Vs Computer") {
-            // Computer (Red, ID 2)
-            const cpu = new Car(P2_X, single_y, COLOR_RED, {}, 'right', 2, getInitialAngle(P2_X, single_y, center_x, center_y), true, 1);
-            cars.push(cpu);
-        } else if (mode === "2v2 Multiplayer") {
-            // P1 (Blue, Top)
+        if (mode === "2v2 Multiplayer") {
             p1.y = center_y - P1_Y_OFFSET;
             p1.resetPos.y = p1.y;
-            
-            // P2 (Blue, Bottom)
-            const p2_2v2 = new Car(P1_X, center_y + P1_Y_OFFSET, COLOR_BLUE, {
-                'up': 'KeyT', 'down': 'KeyG', 'left': 'KeyF', 'right': 'KeyH', 'boost': 'Space'
-            }, 'left', 2, getInitialAngle(P1_X, center_y + P1_Y_OFFSET, center_x, center_y));
-            cars.push(p2_2v2);
-            
-            // P3 (Red, Top)
-            const p3 = new Car(P2_X, center_y - P1_Y_OFFSET, COLOR_RED, {
-                'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ShiftRight'
-            }, 'right', 3, getInitialAngle(P2_X, center_y - P1_Y_OFFSET, center_x, center_y));
-            cars.push(p3);
+        }
 
-            // P4 (Red, Bottom)
-            const p4 = new Car(P2_X, center_y + P1_Y_OFFSET, COLOR_RED, {
-                'up': 'KeyI', 'down': 'KeyK', 'left': 'KeyJ', 'right': 'KeyL', 'boost': 'ControlRight'
-            }, 'right', 4, getInitialAngle(P2_X, center_y + P1_Y_OFFSET, center_x, center_y));
+        cars.push(p1);
+
+        // 2. Setup Opponent(s)
+        if (mode.startsWith("Vs Computer")) {
+            // Use initialAICount for initial setup. In forever mode, this is 1.
+            const numCurrentAI = initialAICount; 
+            for (let i = 0; i < numCurrentAI; i++) {
+                // Spread out AI cars vertically
+                const aiY = center_y + (i % 2 === 0 ? P1_Y_OFFSET * (i / 2) : -P1_Y_OFFSET * Math.ceil(i / 2));
+                const ai = new Car(P2_X, aiY, COLOR_RED, {}, 'right', 2 + i, getInitialAngle(P2_X, aiY, center_x, center_y), true, aiDifficulty);
+                cars.push(ai);
+            }
+        } else if (mode === "1v1 Multiplayer") {
+            const p2 = new Car(P2_X, center_y, COLOR_RED, {
+                'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ShiftRight'
+            }, 'right', 2, getInitialAngle(P2_X, center_y, center_x, center_y));
+            cars.push(p2);
+        } else if (mode === "2v2 Multiplayer") {
+             // Add P2 (Blue) and P3, P4 (Red)
+            const p2_2v2 = new Car(P1_X, center_y + P1_Y_OFFSET, COLOR_BLUE, { 'up': 'KeyT', 'down': 'KeyG', 'left': 'KeyF', 'right': 'KeyH', 'boost': 'Space' }, 'left', 2, getInitialAngle(P1_X, center_y + P1_Y_OFFSET, center_x, center_y));
+            cars.push(p2_2v2);
+            const p3 = new Car(P2_X, center_y - P1_Y_OFFSET, COLOR_RED, { 'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ShiftRight' }, 'right', 3, getInitialAngle(P2_X, center_y - P1_Y_OFFSET, center_x, center_y));
+            cars.push(p3);
+            const p4 = new Car(P2_X, center_y + P1_Y_OFFSET, COLOR_RED, { 'up': 'KeyI', 'down': 'KeyK', 'left': 'KeyJ', 'right': 'KeyL', 'boost': 'ControlRight' }, 'right', 4, getInitialAngle(P2_X, center_y + P1_Y_OFFSET, center_x, center_y));
             cars.push(p4);
         }
 
-        // Store initial states for resets
-        initialStates = cars.map(car => ({ x: car.x, y: car.y, angle: car.angle, id: car.playerId }));
+        // Apply any existing upgrades to P1
+        p1.applyPlayerUpgrades(playerUpgrades);
 
-        // Boost Pad locations
+        // Boost Pad locations (unchanged)
         boostPads = [
-            new BoostPad(currentWidth * 0.5, currentHeight * 0.25),
-            new BoostPad(currentWidth * 0.5, currentHeight * 0.75),
-            new BoostPad(currentWidth * 0.25, currentHeight * 0.5),
-            new BoostPad(currentWidth * 0.75, currentHeight * 0.5),
+            new BoostPad(currentWidth * 0.5, currentHeight * 0.25), new BoostPad(currentWidth * 0.5, currentHeight * 0.75),
+            new BoostPad(currentWidth * 0.25, currentHeight * 0.5), new BoostPad(currentWidth * 0.75, currentHeight * 0.5),
             new BoostPad(currentWidth * 0.5, currentHeight * 0.5),
-            // Corner pads
-            new BoostPad(currentWidth * 0.1, currentHeight * 0.1),
-            new BoostPad(currentWidth * 0.9, currentHeight * 0.1),
-            new BoostPad(currentWidth * 0.1, currentHeight * 0.9),
-            new BoostPad(currentWidth * 0.9, currentHeight * 0.9),
+            new BoostPad(currentWidth * 0.1, currentHeight * 0.1), new BoostPad(currentWidth * 0.9, currentHeight * 0.1),
+            new BoostPad(currentWidth * 0.1, currentHeight * 0.9), new BoostPad(currentWidth * 0.9, currentHeight * 0.9),
         ];
     }
 
     function checkCarBallCollision(car, ball) {
+        // Collision logic remains the same
         const dx = ball.x - car.x;
         const dy = ball.y - car.y;
         const dist = Math.hypot(dx, dy);
@@ -582,15 +698,12 @@
             const impulseAngle = Math.atan2(dy, dx);
             const carSpeed = car.speed;
             const baseForce = 1.0;
-            
-            // Calculate effective force based on car speed and boost
+
             let force = baseForce + carSpeed * 1.5 * (car.boosting ? car.boostPower : 1);
 
-            // Apply impulse to the ball
             ball.velX += Math.cos(impulseAngle) * force;
             ball.velY += Math.sin(impulseAngle) * force;
 
-            // Simple repositioning to avoid sticking
             const overlap = collisionRadius - dist;
             if (overlap > 0) {
                 ball.x += Math.cos(impulseAngle) * overlap;
@@ -614,30 +727,25 @@
         return null;
     }
 
-    // --- DRAWING FUNCTIONS ---
+    // --- GAME LOOP AND STATE CHANGES ---
 
     function drawField() {
-        // Field background
+        // Drawing logic remains the same
         ctx.fillStyle = COLOR_FIELD;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Center line and circle
         ctx.strokeStyle = COLOR_LINES;
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(canvas.width / 2, 0);
         ctx.lineTo(canvas.width / 2, canvas.height);
         ctx.stroke();
-
         ctx.beginPath();
         ctx.arc(canvas.width / 2, canvas.height / 2, 80, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Goals
         const goalTop = canvas.height / 2 - GOAL_HEIGHT / 2;
         const goalBottom = canvas.height / 2 + GOAL_HEIGHT / 2;
 
-        // Left Goal (Blue)
         ctx.strokeStyle = COLOR_GOAL_LINE_BLUE;
         ctx.lineWidth = GOAL_LINE_WIDTH;
         ctx.beginPath();
@@ -645,7 +753,6 @@
         ctx.lineTo(0, goalBottom);
         ctx.stroke();
 
-        // Right Goal (Red)
         ctx.strokeStyle = COLOR_GOAL_LINE_RED;
         ctx.lineWidth = GOAL_LINE_WIDTH;
         ctx.beginPath();
@@ -653,50 +760,64 @@
         ctx.lineTo(canvas.width, goalBottom);
         ctx.stroke();
 
-        // Draw Pads
         boostPads.forEach(pad => pad.draw());
     }
 
     function updateUI() {
-        const minutes = Math.floor(gameTimer / 60);
-        const seconds = Math.floor(gameTimer % 60);
+        const modeInfoElement = document.getElementById('mode-info');
+        const timerElement = document.getElementById('timer');
+        const aiStatusElement = document.getElementById('ai-status');
 
         document.getElementById('score-left').textContent = `BLUE: ${scoreLeft}`;
         document.getElementById('score-right').textContent = `RED: ${scoreRight}`;
-        document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-        // Update P1 Boost Bar (assuming P1 is always the first car)
-        const p1 = cars[0];
-        if (p1) {
-            document.getElementById('p1-boost-fill').style.width = `${(p1.boost / p1.maxBoost) * 100}%`;
-        }
-
-        // Dynamically create/update other player boost bars for 2v2
-        if (gameMode === "2v2 Multiplayer" && cars.length > 2) {
-            const container = uiPanel.querySelector('.space-x-8');
-            // Check if P2 boost element exists, if not, create it
-            if (!document.getElementById('p2-boost-fill')) {
-                // Simplified UI creation for brevity, assuming standard elements for P1 are already there
-                const p2 = cars[1];
-                if (p2) {
-                    container.insertAdjacentHTML('beforeend', `
-                        <div id="player-2-boost" class="text-center">
-                            <p class="text-sm text-gray-300">P2 Boost (T/F/G/H | Space)</p>
-                            <div class="w-40 h-3 bg-gray-600 rounded-full overflow-hidden">
-                                <div id="p2-boost-fill" class="boost-bar h-full bg-blue-500 rounded-full" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    `);
-                }
-            }
-            
-            const p2 = cars[1];
-            if (p2) document.getElementById('p2-boost-fill').style.width = `${(p2.boost / p2.maxBoost) * 100}%`;
-            // Note: For P3/P4, a more robust UI structure would be needed, but for simplicity, we focus on P1/P2.
+        if (endConditionType === 'points') {
+            timerElement.textContent = targetScore;
+            modeInfoElement.textContent = `GOAL TO WIN`;
+        } else if (endConditionType === 'timed') {
+            const minutes = Math.floor(gameTimer / 60);
+            const seconds = Math.floor(gameTimer % 60);
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            modeInfoElement.textContent = `TIME REMAINING`;
+        } else if (endConditionType === 'forever') {
+            const numAI = cars.filter(c => c.ai).length;
+            timerElement.textContent = `LV ${aiDifficulty}`;
+            modeInfoElement.textContent = `PLAYER SCORE`;
+            aiStatusElement.textContent = `LV ${aiDifficulty} (${numAI} Car${numAI !== 1 ? 's' : ''})`;
+            updateForeverStatusPanel();
         }
     }
 
-    // --- MAIN GAME LOOP ---
+    function updateForeverStatusPanel() {
+        if (gameState !== 'playing' && gameState !== 'paused') {
+            foreverStatusPanel.classList.add('hidden');
+            return;
+        }
+
+        const upgradesDisplay = document.getElementById('player-upgrades-display');
+        let html = '';
+        const upgradeKeys = Object.keys(playerUpgrades).filter(key => playerUpgrades[key] > 0);
+
+        if (upgradeKeys.length === 0) {
+            html = `<p class="text-gray-400">No upgrades yet! Score to earn one.</p>`;
+        } else {
+            upgradeKeys.forEach(key => {
+                const upgrade = UPGRADES_POOL.find(u => u.id === key);
+                const count = playerUpgrades[key];
+                if (upgrade) {
+                    html += `
+                        <div class="upgrade-icon-container flex flex-col items-center p-2 bg-gray-600 rounded-lg shadow-inner">
+                            <span class="text-3xl">${upgrade.icon}</span>
+                            <span class="text-xs text-white mt-1">${upgrade.label} x${count}</span>
+                            <div class="upgrade-tooltip text-sm">${upgrade.desc} (x${count})</div>
+                        </div>
+                    `;
+                }
+            });
+        }
+        upgradesDisplay.innerHTML = html;
+        foreverStatusPanel.classList.remove('hidden');
+    }
 
     function gameLoop(timestamp) {
         if (gameState !== 'playing') {
@@ -704,33 +825,33 @@
             return;
         }
 
-        const deltaTime = (timestamp - lastTime) / 1000; // Delta time in seconds
+        const deltaTime = (timestamp - lastTime) / 1000;
         lastTime = timestamp;
 
-        // 1. Timer Update (less frequent than physics)
-        const frameInterval = 1 / FPS;
-        gameTimer -= frameInterval;
+        // 1. Timer Update (only for timed mode)
+        if (endConditionType === 'timed') {
+            const frameInterval = 1 / FPS;
+            gameTimer -= frameInterval;
 
-        if (gameTimer <= 0) {
-            gameTimer = 0;
-            showEndScreen();
-            return;
+            if (gameTimer <= 0) {
+                gameTimer = 0;
+                showEndScreen();
+                return;
+            }
         }
 
         // 2. Input and Physics
         cars.forEach(car => {
             car.handleInput();
             car.move();
-            // Handle boost pads
             boostPads.forEach(pad => {
                 if (pad.checkCollision(car)) {
                     car.refillBoost(pad.refillAmount);
                 }
             });
-            // Handle collisions
             checkCarBallCollision(car, ball);
         });
-        
+
         ball.move();
 
         // 3. Goal Check
@@ -738,12 +859,46 @@
         if (goal) {
             if (goal === 'left') {
                 scoreLeft++;
-                if (gameMode === "Vs Computer" && cars[1].ai && scoreLeft % 5 === 0) {
-                    cars[1].updateDifficulty(cars[1].difficulty + 1);
-                }
             } else {
                 scoreRight++;
             }
+
+            // --- FOREVER MODE LOGIC ---
+            if (endConditionType === 'forever') {
+                // A. Loss Condition Check (AI leads by 5 or more)
+                if (scoreRight >= scoreLeft + 5) {
+                    showEndScreen(); // Player loses
+                    return;
+                }
+
+                // B. AI Difficulty Scaling (Every 5 player points)
+                const targetDifficulty = Math.floor(scoreLeft / 5) + 1;
+
+                if (scoreLeft > 0 && scoreLeft % 5 === 0 && scoreLeft > scoreRight && !isUpgrading && targetDifficulty > aiDifficulty) {
+                    aiDifficulty = targetDifficulty;
+                    cars.filter(c => c.ai).forEach(ai => ai.updateDifficulty(aiDifficulty));
+                    
+                    if (!isUpgrading) {
+                        isUpgrading = true; // Set flag to prevent double-trigger
+                        showUpgradeChoice();
+                    }
+                }
+
+                // C. AI Car Addition (Every 10 player points)
+                const targetAICount = Math.floor(scoreLeft / 10) + 1;
+                const currentAICount = getNumberOfAICars();
+                if (targetAICount > currentAICount) {
+                    addAICar(targetAICount);
+                }
+            }
+            // --- END FOREVER MODE LOGIC ---
+
+            // Check for game winner based on points (for non-forever modes)
+            if (endConditionType === 'points' && (scoreLeft >= targetScore || scoreRight >= targetScore)) {
+                showEndScreen();
+                return;
+            }
+
             resetRound();
         }
 
@@ -751,11 +906,34 @@
         drawField();
         cars.forEach(car => car.draw());
         ball.draw();
-        
+
         // 5. UI Update
         updateUI();
 
         animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function getNumberOfAICars() {
+        return cars.filter(c => c.ai).length;
+    }
+
+    function addAICar(newIndex) {
+        const P2_X = canvas.width - 100 - CAR_WIDTH / 2;
+        const P1_Y_OFFSET = CAR_HEIGHT * 2;
+        const center_y = canvas.height / 2;
+
+        // Calculate new AI Y position to spread them out
+        const positions = [
+             center_y, // Index 0 (Used for the initial car)
+             center_y - P1_Y_OFFSET, center_y + P1_Y_OFFSET, // Index 1, 2
+             center_y - P1_Y_OFFSET * 2, center_y + P1_Y_OFFSET * 2, // Index 3, 4
+             // Add more if needed...
+        ];
+        // newIndex is the target count (1, 2, 3...). We use (newIndex - 1) to get the 0-based index for positioning.
+        const aiY = positions[(newIndex - 1) % positions.length];
+
+        const newAI = new Car(P2_X, aiY, COLOR_RED, {}, 'right', newIndex + 1, getInitialAngle(P2_X, aiY, canvas.width / 2, center_y), true, aiDifficulty);
+        cars.push(newAI);
     }
 
     function resetRound() {
@@ -765,44 +943,185 @@
 
     // --- MENU AND STATE MANAGEMENT ---
 
+    function togglePause() {
+        if (gameState === 'playing') {
+            showPauseMenu();
+        } else if (gameState === 'paused') {
+            continuePlay();
+        }
+    }
+
+    function continuePlay() {
+        if (gameState === 'paused' || gameState === 'upgrading') {
+            gameState = 'playing';
+            overlay.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+            lastTime = performance.now(); // Reset lastTime to prevent jump
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function showPauseMenu() {
+        if (gameState === 'finished' || gameState === 'menu' || gameState === 'end_condition' || gameState === 'option_value') return;
+        gameState = 'paused';
+        cancelAnimationFrame(animationFrameId);
+        pauseBtn.classList.add('hidden');
+        overlay.classList.remove('hidden');
+
+        let menuOptions = [
+            { label: "Continue Play", action: 'continue' },
+            { label: "Exit to Main Menu", action: 'exit' }
+        ];
+        let selectedIndex = 0;
+
+        const rulesContent = `
+            <div class="text-left max-w-lg mt-4 text-gray-300">
+                <h3 class="text-2xl font-bold mb-2 text-cyan-400">Game Rules: Play Forever</h3>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>**Loss Condition:** The game ends if the Red Team (AI) scores **5 points more** than the Blue Team (You).</li>
+                    <li>**AI Challenge:** AI difficulty (speed/boost) **increases every 5 points** you score.</li>
+                    <li>**AI Spawns:** An **extra AI car** is added to the Red Team every **10 points** you score.</li>
+                    <li>**Player Reward:** Every **5 points** you score, you get to select a permanent **Upgrade**.</li>
+                </ul>
+                <p class="mt-4 text-sm text-gray-400">Current AI Level: <span class="text-red-400 font-bold">LV ${aiDifficulty}</span>, Score: <span class="text-blue-400 font-bold">${scoreLeft}</span> - <span class="text-red-400 font-bold">${scoreRight}</span></p>
+            </div>
+        `;
+
+        renderMenu(menuOptions, selectedIndex, "GAME PAUSED (P)", 'pause-menu', rulesContent);
+    }
+
+    function showUpgradeChoice() {
+        gameState = 'upgrading';
+        cancelAnimationFrame(animationFrameId);
+        pauseBtn.classList.add('hidden');
+        overlay.classList.remove('hidden');
+
+        // Select 3 unique random upgrades
+        const availableUpgrades = [...UPGRADES_POOL];
+        const selectedChoices = [];
+        while (selectedChoices.length < 3 && availableUpgrades.length > 0) {
+            const index = Math.floor(Math.random() * availableUpgrades.length);
+            selectedChoices.push(availableUpgrades.splice(index, 1)[0]);
+        }
+
+        let optionsHtml = selectedChoices.map((option, index) => {
+            const isSelected = index === 0;
+            const classList = `text-2xl mb-4 p-4 transition duration-150 rounded-xl bg-gray-700 hover:bg-gray-600 w-full text-left ${isSelected ? 'menu-selected' : 'text-gray-300 font-semibold'}`;
+            return `<div class="${classList}" data-index="${index}" data-upgrade-id="${option.id}">
+                        <span class="text-4xl mr-3">${option.icon}</span> 
+                        <span class="font-extrabold text-cyan-300">${option.label}</span>
+                        <p class="text-sm text-gray-400 mt-1">${option.desc}</p>
+                    </div>`;
+        }).join('');
+
+        overlay.innerHTML = `
+            <div class="text-center p-8 bg-gray-800 rounded-xl shadow-2xl max-w-xl w-full">
+                <h1 class="text-5xl font-extrabold text-yellow-400 mb-2">UPGRADE AVAILABLE!</h1>
+                <h2 class="text-3xl font-bold text-white mb-6">Select Your Reward:</h2>
+                <div id="upgrade-options" class="flex flex-col items-center gap-2">${optionsHtml}</div>
+                <p class="text-sm text-gray-500 mt-6">Use ↑↓ and ENTER to select</p>
+            </div>
+        `;
+
+        let selectedUpgradeIndex = 0;
+        document.getElementById('upgrade-options').children[0].classList.add('menu-selected');
+
+        // Keyboard handler for the upgrade menu
+        const upgradeKeyHandler = (e) => {
+            if (e.code === 'ArrowUp') {
+                selectedUpgradeIndex = (selectedUpgradeIndex - 1 + selectedChoices.length) % selectedChoices.length;
+            } else if (e.code === 'ArrowDown') {
+                selectedUpgradeIndex = (selectedUpgradeIndex + 1) % selectedChoices.length;
+            } else if (e.code === 'Enter') {
+                const selectedUpgradeId = selectedChoices[selectedUpgradeIndex].id;
+                applyUpgrade(selectedUpgradeId);
+                document.removeEventListener('keydown', upgradeKeyHandler);
+                continuePlay();
+                return;
+            }
+
+            // Update visuals
+            [...document.getElementById('upgrade-options').children].forEach((el, i) => {
+                el.classList.remove('menu-selected');
+                if (i === selectedUpgradeIndex) {
+                    el.classList.add('menu-selected');
+                }
+            });
+        };
+
+        document.addEventListener('keydown', upgradeKeyHandler);
+    }
+
+    function applyUpgrade(upgradeId) {
+        playerUpgrades[upgradeId] = (playerUpgrades[upgradeId] || 0) + 1;
+        cars.filter(c => !c.ai).forEach(c => c.applyPlayerUpgrades(playerUpgrades));
+        isUpgrading = false; // Reset flag
+        console.log(`Upgrade applied: ${upgradeId}. Current Upgrades:`, playerUpgrades);
+    }
+
     function startGame() {
         gameState = 'playing';
         scoreLeft = 0;
         scoreRight = 0;
-        gameTimer = timeLimitSeconds;
-        setupGameObjects(gameMode);
-        
-        // Show UI, hide overlay
+        aiDifficulty = 1;
+        playerUpgrades = {};
+        isUpgrading = false;
+
+        if (endConditionType === 'timed') {
+            gameTimer = timeLimitSeconds;
+        } else {
+             // Use a large number for timer in points/forever mode as timer isn't the primary end condition
+             gameTimer = 999999;
+        }
+
+        // Fix: Pass 1 as the initial AICount for "Play Forever" mode.
+        const initialAICount = (gameMode.startsWith("Vs Computer") && endConditionType === 'forever') ? 1 : 1;
+        setupGameObjects(gameMode, initialAICount);
+
         uiPanel.classList.remove('hidden');
+        pauseBtn.classList.remove('hidden');
         overlay.classList.add('hidden');
-        
+
         lastTime = performance.now();
         animationFrameId = requestAnimationFrame(gameLoop);
     }
 
     function showEndScreen() {
         gameState = 'finished';
+        pauseBtn.classList.add('hidden');
         uiPanel.classList.add('hidden');
+        foreverStatusPanel.classList.add('hidden');
         overlay.classList.remove('hidden');
 
         let winnerText;
         let winnerColor;
+        let finalScoreText;
 
-        if (scoreLeft > scoreRight) {
+        if (endConditionType === 'forever' && scoreRight >= scoreLeft + 5) {
+             winnerText = "GAME OVER";
+             winnerColor = 'text-red-600';
+             // Show player's score as the final score
+             finalScoreText = `Player Final Score: ${scoreLeft}`;
+        }
+        else if (scoreLeft > scoreRight) {
             winnerText = "BLUE TEAM WINS!";
             winnerColor = 'text-blue-400';
+            finalScoreText = `Final Score: ${scoreLeft} - ${scoreRight}`;
         } else if (scoreRight > scoreLeft) {
             winnerText = "RED TEAM WINS!";
             winnerColor = 'text-red-400';
+            finalScoreText = `Final Score: ${scoreLeft} - ${scoreRight}`;
         } else {
             winnerText = "TIE GAME!";
             winnerColor = 'text-white';
+            finalScoreText = `Final Score: ${scoreLeft} - ${scoreRight}`;
         }
 
         overlay.innerHTML = `
             <div class="text-center p-8 bg-gray-700 rounded-xl shadow-2xl">
                 <h1 class="text-6xl font-extrabold mb-4 ${winnerColor}">${winnerText}</h1>
-                <p class="text-3xl mb-8 text-white">Final Score: <span class="text-blue-400">${scoreLeft}</span> - <span class="text-red-400">${scoreRight}</span></p>
+                <p class="text-3xl mb-8 text-white">${finalScoreText}</p>
+                <p class="text-xl mb-6 text-gray-300">Mode: ${gameMode}${endConditionType === 'forever' ? ` (AI Level ${aiDifficulty})` : ''}</p>
                 <button onclick="showMainMenu()" class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-lg transition duration-200 shadow-md">
                     Return to Main Menu (ENTER)
                 </button>
@@ -810,81 +1129,171 @@
         `;
     }
 
+    // --- MENU DATA & RENDER ---
+
     const menuOptions = ["1v1 Multiplayer", "Vs Computer", "2v2 Multiplayer"];
     let selectedMenuIndex = 0;
-    const timeOptions = [
-        { seconds: 60, label: "Quick Round (1 min)" },
-        { seconds: 120, label: "Standard Match (2 min)" },
-        { seconds: 300, label: "Long Match (5 min)" }
-    ];
-    let selectedTimeIndex = 1;
 
-    function renderMenu(options, selectedIndex, title, actionCallback) {
+    const timeOptions = [
+        { value: 60, label: "Quick Round (1 min)" },
+        { value: 120, label: "Standard Match (2 min)" },
+        { value: 300, label: "Long Match (5 min)" }
+    ];
+    const scoreOptions = [
+        { value: 3, label: "Play to 3 Goals" },
+        { value: 5, label: "Play to 5 Goals" },
+        { value: 10, label: "Play to 10 Goals" }
+    ];
+
+    const endConditionSets = {
+        'default': [
+            { type: 'timed', label: 'Timed Game' },
+            { type: 'points', label: 'Points Game' }
+        ],
+        'Vs Computer': [
+            { type: 'timed', label: 'Timed Game' },
+            { type: 'points', label: 'Points Game' },
+            { type: 'forever', label: 'Play Forever' }
+        ]
+    };
+
+    let selectedEndConditionIndex = 0;
+    let selectedOptionValueIndex = 0;
+    let currentOptions = [];
+
+    function renderMenu(options, selectedIndex, title, menuId = 'menu-options', extraContent = '') {
         let optionsHtml = options.map((option, index) => {
             const label = option.label || option;
-            const color = index === selectedIndex ? 'text-yellow-400 font-extrabold' : 'text-gray-300 font-semibold';
-            return `<div class="cursor-pointer text-4xl mb-4 p-2 rounded-lg ${color}" data-index="${index}">${label}</div>`;
+            const isSelected = index === selectedIndex;
+            const classList = `text-4xl mb-4 p-2 transition duration-150 ${isSelected ? 'menu-selected' : 'text-gray-300 font-semibold'}`;
+            return `<div class="${classList}" data-index="${index}">${label}</div>`;
         }).join('');
 
         overlay.innerHTML = `
             <div class="text-center p-8 bg-gray-800 rounded-xl shadow-2xl">
                 <h1 class="text-5xl font-extrabold text-cyan-400 mb-2">2D Rocket League</h1>
                 <h2 class="text-3xl font-bold text-white mb-8">${title}</h2>
-                <div id="menu-options" class="flex flex-col items-center">${optionsHtml}</div>
-                <p class="text-sm text-gray-500 mt-8">Use ↑↓ and ENTER/Click to select</p>
+                ${extraContent}
+                <div id="${menuId}" class="flex flex-col items-center">${optionsHtml}</div>
+                <p class="text-sm text-gray-500 mt-8">Use ↑↓ and ENTER to select</p>
             </div>
         `;
-
-        // Add click listener for selection
-        document.getElementById('menu-options').addEventListener('click', (e) => {
-            const target = e.target.closest('div[data-index]');
-            if (target) {
-                selectedIndex = parseInt(target.dataset.index);
-                actionCallback(selectedIndex);
-            }
-        });
-
-        return selectedIndex;
     }
 
     function showMainMenu() {
         gameState = 'menu';
-        selectedMenuIndex = renderMenu(menuOptions, selectedMenuIndex, "SELECT MODE", (index) => {
-            gameMode = menuOptions[index];
-            showTimeMenu();
-        });
+        selectedMenuIndex = 0;
+        pauseBtn.classList.add('hidden');
+        foreverStatusPanel.classList.add('hidden');
+        renderMenu(menuOptions, selectedMenuIndex, "SELECT MODE");
     }
 
-    function showTimeMenu() {
-        gameState = 'time_select';
-        selectedTimeIndex = renderMenu(timeOptions, selectedTimeIndex, `TIME LIMIT for ${gameMode}`, (index) => {
-            timeLimitSeconds = timeOptions[index].seconds;
+    function showEndConditionMenu() {
+        gameState = 'end_condition';
+        selectedEndConditionIndex = 0;
+        const conditionSet = endConditionSets[gameMode] || endConditionSets['default'];
+        renderMenu(conditionSet, selectedEndConditionIndex, `END CONDITION for ${gameMode}`);
+    }
+
+    function showOptionValueMenu() {
+        gameState = 'option_value';
+        selectedOptionValueIndex = 0;
+
+        const conditionSet = endConditionSets[gameMode] || endConditionSets['default'];
+        const condition = conditionSet[selectedEndConditionIndex];
+
+        endConditionType = condition.type;
+
+        if (endConditionType === 'timed') {
+            currentOptions = timeOptions;
+            renderMenu(currentOptions, selectedOptionValueIndex, "SET TIME LIMIT");
+        } else if (endConditionType === 'points') {
+            currentOptions = scoreOptions;
+            renderMenu(currentOptions, selectedOptionValueIndex, "SET SCORE TARGET");
+        } else if (endConditionType === 'forever') {
             startGame();
-        });
+        }
     }
 
-    // --- EVENT LISTENERS ---
+    // --- EVENT LISTENERS (Keyboard-Only) ---
 
     document.addEventListener('keydown', (e) => {
+        if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Shift', 'Enter', 'KeyP'].includes(e.code)) {
+            e.preventDefault();
+        }
+
         keys[e.code] = true;
-        e.preventDefault(); // Prevent scrolling with arrow keys
+
+        if (e.code === 'KeyP' && (gameState === 'playing' || gameState === 'paused')) {
+            togglePause();
+            return;
+        }
+
+        if (gameState === 'playing' || gameState === 'upgrading') return;
+
+        let options, selectedIndexVar, setIndexFunc, nextStateFunc, menuId = 'menu-options';
+        let keyPressHandled = false;
 
         if (gameState === 'menu') {
-            if (e.code === 'ArrowUp') selectedMenuIndex = (selectedMenuIndex - 1 + menuOptions.length) % menuOptions.length;
-            if (e.code === 'ArrowDown') selectedMenuIndex = (selectedMenuIndex + 1) % menuOptions.length;
-            renderMenu(menuOptions, selectedMenuIndex, "SELECT MODE", (index) => {
-                gameMode = menuOptions[index];
-                showTimeMenu();
-            });
-        } else if (gameState === 'time_select') {
-            if (e.code === 'ArrowUp') selectedTimeIndex = (selectedTimeIndex - 1 + timeOptions.length) % timeOptions.length;
-            if (e.code === 'ArrowDown') selectedTimeIndex = (selectedTimeIndex + 1) % timeOptions.length;
-            renderMenu(timeOptions, selectedTimeIndex, `TIME LIMIT for ${gameMode}`, (index) => {
-                timeLimitSeconds = timeOptions[index].seconds;
+            options = menuOptions;
+            selectedIndexVar = selectedMenuIndex;
+            setIndexFunc = (newIndex) => { selectedMenuIndex = newIndex; };
+            nextStateFunc = () => { gameMode = menuOptions[selectedMenuIndex]; showEndConditionMenu(); };
+            menuId = 'menu-options';
+        } else if (gameState === 'end_condition') {
+            options = endConditionSets[gameMode] || endConditionSets['default'];
+            selectedIndexVar = selectedEndConditionIndex;
+            setIndexFunc = (newIndex) => { selectedEndConditionIndex = newIndex; };
+            nextStateFunc = () => { showOptionValueMenu(); };
+            menuId = 'menu-options';
+        } else if (gameState === 'option_value') {
+            options = currentOptions;
+            selectedIndexVar = selectedOptionValueIndex;
+            setIndexFunc = (newIndex) => { selectedOptionValueIndex = newIndex; };
+            nextStateFunc = () => {
+                const selectedOption = currentOptions[selectedOptionValueIndex];
+                if (endConditionType === 'timed') { timeLimitSeconds = selectedOption.value; }
+                else if (endConditionType === 'points') { targetScore = selectedOption.value; }
                 startGame();
-            });
+            };
+            menuId = 'menu-options';
+        } else if (gameState === 'paused') {
+            options = [{ label: "Continue Play", action: 'continue' }, { label: "Exit to Main Menu", action: 'exit' }];
+            selectedIndexVar = e.target.selectedPauseIndex || 0;
+            setIndexFunc = (newIndex) => { e.target.selectedPauseIndex = newIndex; };
+            menuId = 'pause-menu';
+
+            if (e.code === 'Enter') {
+                const action = options[selectedIndexVar].action;
+                if (action === 'continue') {
+                    continuePlay();
+                } else if (action === 'exit') {
+                    showMainMenu();
+                }
+                return;
+            }
         } else if (gameState === 'finished' && e.code === 'Enter') {
             showMainMenu();
+            return;
+        }
+
+        if (options) {
+            if (e.code === 'ArrowUp') {
+                selectedIndexVar = (selectedIndexVar - 1 + options.length) % options.length;
+                keyPressHandled = true;
+            }
+            if (e.code === 'ArrowDown') {
+                selectedIndexVar = (selectedIndexVar + 1) % options.length;
+                keyPressHandled = true;
+            }
+            if (keyPressHandled) {
+                setIndexFunc(selectedIndexVar);
+                let extraContent = gameState === 'paused' ? document.querySelector('.text-left.max-w-lg')?.outerHTML || '' : '';
+                renderMenu(options, selectedIndexVar, document.querySelector('h2').textContent, menuId, extraContent);
+            }
+            if (e.code === 'Enter' && nextStateFunc) {
+                nextStateFunc();
+            }
         }
     });
 
@@ -894,7 +1303,6 @@
 
     // Initial load
     window.onload = () => {
-        // Set the initial canvas size for the menu
         canvas.width = DEFAULT_WIDTH;
         canvas.height = DEFAULT_HEIGHT;
         showMainMenu();
