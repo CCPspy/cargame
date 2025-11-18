@@ -19,7 +19,8 @@
         }
         #game-container {
             width: 100%;
-            max-width: 1200px;
+            /* CHG: Set max-width to 1000px */
+            max-width: 1000px; 
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             border-radius: 1rem; /* rounded-2xl */
             overflow: hidden;
@@ -81,7 +82,6 @@
         /* End Tooltip */
 
         /* Ability tier colors */
-        /* FIX: Changed bronze to brown */
         .ability-level-bronze { background: #cd7f32; color: #ffffff; }
         .ability-level-silver { background: #c0c0c0; color: #393939; }
         .ability-level-gold { background: linear-gradient(90deg,#ffd700,#fae360); color: #625002; }
@@ -116,14 +116,18 @@
             transition: transform 0.2s, box-shadow 0.2s;
             cursor: pointer;
         }
-        /* REMOVED: .upgrade-option-card:hover - This is now handled by .menu-selected for consistency */
     </style>
 </head>
 <body class="bg-gray-900 text-white">
 
 <div id="game-container" class="bg-gray-800 p-4 sm:p-6 lg:p-8">
     <!-- Top Bar for Pause Button -->
-    <div id="top-bar" class="w-full mb-4 flex justify-end">
+    <!-- CHG: Added space-x-2 for button spacing -->
+    <div id="top-bar" class="w-full mb-4 flex justify-end space-x-2">
+        <!-- NEW: Fullscreen Button -->
+        <button id="fullscreen-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
+            <span class="mr-2">📺</span> Fullscreen
+        </button>
         <button id="pause-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
             <span class="mr-2">⏸️</span> Pause (P)
         </button>
@@ -175,11 +179,12 @@
 // --- Constants ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const DEFAULT_WIDTH = 1000, DEFAULT_HEIGHT = 600;
-const CAR_WIDTH = 60, CAR_HEIGHT = 30;
-const BALL_RADIUS = 20;
-const GOAL_HEIGHT = 200;
-const GOAL_LINE_WIDTH = 8;
+// CHG: Reverted width/height to 1000x600
+const DEFAULT_WIDTH = 1000, DEFAULT_HEIGHT = 600; // Old: 1200, 720
+const CAR_WIDTH = 50, CAR_HEIGHT = 25; // Old: 60, 30
+const BALL_RADIUS = 17; // Old: 20
+const GOAL_HEIGHT = 170; // Old: 200
+const GOAL_LINE_WIDTH = 7; // Old: 8
 const MAX_CENTER_OFFSET_FACTOR = 1 / 6;
 const PHYSICS_TICK_RATE = 60; // We'll scale physics to this (e.g., deltaTime * 60)
 const COLOR_BLUE = '#0066cc';
@@ -215,8 +220,10 @@ let stuckBallMessage = { text: '', duration: 0 };
 let selectedMenuIndex = 0;
 let selectedUpgradeIndex = 0;
 let menuOptions = []; // This will hold the DOM elements for the current menu
+// NEW: Fullscreen button global
+const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// --- ABILITY POOLS (CLEANED UP) ---
+// --- ABILITY POOLS (UNCHANGED) ---
 const BRONZE_UPGRADES = [
     {id:'accel',label:'Engine Boost',icon:'⚡',desc:'Acceleration +10%.',tier:'bronze'},
     {id:'turn',label:'Agile Steering',icon:'🌀',desc:'Rotation speed +15%.',tier:'bronze'},
@@ -311,6 +318,8 @@ function requestUpgradePicker() {
     upgradeRerollsUsed = 0;
     rerollUpgradeOptions(); // This calls drawUpgradeMenu
     document.getElementById('pause-btn').classList.add('hidden');
+    // NEW: Hide fullscreen btn
+    document.getElementById('fullscreen-btn').classList.add('hidden');
 }
 function rerollUpgradeOptions() {
     let numPicks = 3 + extraUpgradePicks;
@@ -363,6 +372,8 @@ function exitUpgradePicker() {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     pauseBtn.classList.remove('hidden');
+    // NEW: Show fullscreen btn
+    document.getElementById('fullscreen-btn').classList.remove('hidden');
    
     // Crucial: Reset lastTime to prevent a huge deltaTime spike
     lastTime = performance.now();
@@ -390,9 +401,8 @@ class Car {
         this.boostTimer = 0; // For ghost car
         this.sizeMultiplier = 1.0;
        
-        // FIX: Added for AI corner stuck logic
         this.stuckInCornerTimer = 0;
-        this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0; // Random 5-7s
+        this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0;
        
         this.updateDifficulty(difficulty);
         this.resetPos={x,y,angle:initial_angle};
@@ -431,7 +441,7 @@ class Car {
     }
    
     handleInput(deltaTime) { // Needs deltaTime for boost timer and AI
-        if (this.ai) { this.handleAI(deltaTime); return; } // FIX: Pass deltaTime
+        if (this.ai) { this.handleAI(deltaTime); return; }
         if (this.isStunned) return;
        
         this.throttleDirection=0; let accelerationForce = 0;
@@ -451,7 +461,17 @@ class Car {
             this.velX+=Math.cos(rad)*accelerationForce; this.velY-=Math.sin(rad)*accelerationForce;
         }
        
-        let boostActive = keys['ShiftLeft'] || keys['ShiftRight'] || keys[this.controls['boost']];
+        // CHG: Updated Boost Logic
+        let boostActive = keys[this.controls['boost']];
+        
+        // Special case for P1 in Vs Computer mode to use both shifts
+        if (gameMode === 'Vs Computer' && this.playerId === 1) {
+            if (keys['ShiftLeft'] || keys['ShiftRight']) {
+                boostActive = true;
+            }
+        }
+        // END CHG
+       
         this.boosting = boostActive && this.boost > 0;
        
         if (this.boosting) {
@@ -465,7 +485,7 @@ class Car {
         }
     }
 
-    handleAI(deltaTime) { // FIX: Added deltaTime
+    handleAI(deltaTime) {
         if (!ball || this.isStunned) return;
        
         // AI Separation Force
@@ -497,7 +517,7 @@ class Car {
             }
         });
        
-        // --- FIX: AI Zoning Logic ---
+        // --- AI Zoning Logic ---
         switch(this.role){
             case "defender":
                 let gLineX = this.team_side === "right" ? canvas.width - BALL_RADIUS*3 : BALL_RADIUS*3;
@@ -517,17 +537,16 @@ class Car {
                 if (numAIs >= 3) { // Clamp to 0.45 - 0.8
                     targetX = Math.max(canvas.width * 0.45, Math.min(targetX, canvas.width * 0.80));
                 }
-                // If numAIs is 1, 2, or less, this role shouldn't exist, but if it does, it has full range.
                 break;
             case "attacker":
                 targetX = targetBall.x; targetY = targetBall.y;
-                let zoneLeft = 0; // Soft left border (Covers full map for 1 AI)
+                let zoneLeft = 0;
                 let zoneRight = canvas.width;
                 let zoneTop = 0;
                 let zoneBottom = canvas.height;
 
-                if (numAIs === 2) zoneRight = canvas.width * 0.80; // Overlaps with defender
-                if (numAIs >= 3) zoneRight = canvas.width * 0.55; // Overlaps with mid
+                if (numAIs === 2) zoneRight = canvas.width * 0.80; 
+                if (numAIs >= 3) zoneRight = canvas.width * 0.55; 
 
                 if (numAIs >= 4) {
                     let attackers = cars.filter(c => c.ai && !c.isFriendlyAI && c.role === 'attacker').sort((a,b) => a.playerId - b.playerId);
@@ -535,36 +554,30 @@ class Car {
                     
                     if (myAttackerIndex === 0) { // Top attacker
                         zoneBottom = canvas.height / 2;
-                        // If ball is not in my zone, go home
                         if (targetBall.y > zoneBottom || targetBall.x > zoneRight) {
-                            targetY = canvas.height * 0.25; // Home Y
+                            targetY = canvas.height * 0.25; 
                         }
-                    } else if (myAttackerIndex >= 1) { // Bottom attacker (and any extras)
+                    } else if (myAttackerIndex >= 1) { // Bottom attacker
                         zoneTop = canvas.height / 2;
-                         // If ball is not in my zone, go home
-                        if (targetBall.y < zoneTop || targetBall.x > zoneRight) {
-                            targetY = canvas.height * 0.75; // Home Y
+                         if (targetBall.y < zoneTop || targetBall.x > zoneRight) {
+                            targetY = canvas.height * 0.75;
                         }
                     }
-                    // If ball is out of X zone, go home
                     if (targetBall.x > zoneRight && targetBall.x > this.x) targetX = (zoneLeft + zoneRight) / 2;
                 }
                 
-                // Clamp target
                 targetX = Math.max(zoneLeft, Math.min(targetX, zoneRight));
                 targetY = Math.max(zoneTop, Math.min(targetY, zoneBottom));
                 break;
             case "goalkeeper":
-                // This role is used by friendly AI, but logic is here
                 let gkLineX = this.team_side === "right" ? canvas.width - BALL_RADIUS*3 : BALL_RADIUS*3;
                 targetX = gkLineX;
                 targetY = Math.max(canvas.height/2-GOAL_HEIGHT/2+BALL_RADIUS, Math.min(targetBall.y,canvas.height/2+GOAL_HEIGHT/2-BALL_RADIUS));
                 break;
             default: targetX=targetBall.x; targetY=targetBall.y;
         }
-        // --- END AI Zoning Logic ---
        
-        // --- FIX: AI Corner Avoidance Logic (with Timer) ---
+        // --- AI Corner Avoidance Logic ---
         const cornerSize = 150;
         const ballInTop = targetBall.y < cornerSize;
         const ballInBottom = targetBall.y > canvas.height - cornerSize;
@@ -586,11 +599,11 @@ class Car {
         if (aiIsInCorner && this.role !== 'goalkeeper') {
             this.stuckInCornerTimer += deltaTime;
             
-            if (this.stuckInCornerTimer > this.stuckInCornerThreshold) { // Only apply if stuck for 5-7s
+            if (this.stuckInCornerTimer > this.stuckInCornerThreshold) { 
                 if (this.role === 'defender') {
                     targetX = canvas.width / 2;
                     targetY = canvas.height / 2;
-                } else { // Attacker or Mid
+                } else { 
                     targetX = targetBall.x;
                     targetY = targetBall.y;
                     if (ballInLeft) targetX = cornerSize + 20;
@@ -599,14 +612,12 @@ class Car {
                     if (ballInBottom) targetY = canvas.height - cornerSize - 20;
                 }
             }
-            // If not stuck yet, do nothing, use normal target from zoning logic
         } else {
-            this.stuckInCornerTimer = 0; // Reset timer
-            if (this.stuckInCornerTimer < -1) { // Only reset threshold if timer was fully reset
-                 this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0; // Reset random threshold
+            this.stuckInCornerTimer = 0; 
+            if (this.stuckInCornerTimer < -1) { 
+                 this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0;
             }
         }
-        // --- END FIX ---
        
         const dx=targetX-this.x,dy=targetY-this.y;
         const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
@@ -631,12 +642,25 @@ class Car {
             }
         }
        
-        // AI Boost logic
+        // CHG: AI Boost logic updated
         let boostThreshold = this.maxBoost * (0.1 * this.difficulty);
         if (["attacker","mid"].includes(this.role)) {
-            let basicBoost = this.boost>boostThreshold && ((dist>200&&(Math.abs(angleDiff)<8)));
-            this.boosting = (this.difficulty > 1 ? basicBoost : false);
-        } else { this.boosting=false; }
+            let basicBoost = this.boost > boostThreshold && ((dist > 200 && (Math.abs(angleDiff) < 8)));
+            
+            let numAIs = getNumberOfAICars();
+            if (numAIs >= 6) {
+                // More aggressive boosting when 6 AIs are present
+                boostThreshold = this.maxBoost * 0.1; // Use boost even at low difficulty
+                basicBoost = this.boost > boostThreshold && ((dist > 150 && (Math.abs(angleDiff) < 15)));
+                this.boosting = basicBoost; // Always boost if conditions are met
+            } else {
+                // Original logic
+                this.boosting = (this.difficulty > 1 ? basicBoost : false);
+            }
+        } else { 
+            this.boosting = false; 
+        }
+        // END CHG
     }
    
     move(deltaTime) {
@@ -682,35 +706,34 @@ class Car {
         this.x += this.velX * speedMultiplier * deltaTime * PHYSICS_TICK_RATE;
         this.y += this.velY * speedMultiplier * deltaTime * PHYSICS_TICK_RATE;
        
-        // --- FIX: Wall collision (Removed fieldExpand) ---
+        // --- Wall collision (Rescaled) ---
         let w = CAR_WIDTH * this.sizeMultiplier;
         let h = CAR_HEIGHT * this.sizeMultiplier;
         
-        let marginW = w / 2; // Simple approximation
-        let marginH = h / 2; // Simple approximation
+        let marginW = w / 2;
+        let marginH = h / 2;
 
-        // NEW Bouncing Logic
         if (this.x < marginW) {
             this.x = marginW;
-            this.velX *= -0.5; // Bounce off left wall
+            this.velX *= -0.5;
         } else if (this.x > canvas.width - marginW) {
             this.x = canvas.width - marginW;
-            this.velX *= -0.5; // Bounce off right wall
+            this.velX *= -0.5;
         }
        
         if (this.y < marginH) {
             this.y = marginH;
-            this.velY *= -0.5; // Bounce off top wall
+            this.velY *= -0.5;
         } else if (this.y > canvas.height - marginH) {
             this.y = canvas.height - marginH;
-            this.velY *= -0.5; // Bounce off bottom wall
+            this.velY *= -0.5;
         }
-        // --- END FIX ---
     }
    
     draw() {
         ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(-Math.PI*this.angle/180);
        
+        // CHG: Width and height read from global (scaled) constants
         let w = CAR_WIDTH * this.sizeMultiplier;
         let h = CAR_HEIGHT * this.sizeMultiplier;
        
@@ -762,20 +785,16 @@ class Car {
     }
    
     refillBoost(amount) {
-        let refill = amount;
-        if(!this.ai && this.playerId===1){
-            refill += (playerUpgrades.boostRegen || 0) * 6;
-            // if(playerUpgrades.hyperPad) refill *= 2; // Removed ability
-        }
-        this.boost = Math.min(this.maxBoost,this.boost+refill);
+        // CHG: Removed upgrade logic, it's now in BoostPad.consume
+        this.boost = Math.min(this.maxBoost,this.boost+amount);
     }
    
     reset() {
         this.x=this.resetPos.x; this.y=this.resetPos.y; this.angle=this.resetPos.angle;
         this.velX=0; this.velY=0; this.speed=0; this.boost=this.maxBoost;
         this.isStunned=false; this.stunDuration=0; this.effects={};
-        this.stuckInCornerTimer = 0; // Reset corner timer
-        this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0; // Reset random threshold
+        this.stuckInCornerTimer = 0;
+        this.stuckInCornerThreshold = 5.0 + Math.random() * 2.0;
     }
 }
 
@@ -784,12 +803,8 @@ class Ball {
         this.x=x;this.y=y;this.radius=radius;this.color=COLOR_CYAN;
         this.velX=0;this.velY=0;this.maxSpeed=35; this.pointType=pointType; this.effects = {};
        
-        // --- FIX: New Stuck Ball (Speed-based) Vars ---
         this.stuckTimer = 0;
         this.ballStuckCountdown = 0;
-        // --- REMOVED: Old Corner Stuck Vars ---
-        // this.ballInCornerTimer = 0;
-        // this.ballInCornerArea = null;
     }
    
     move(deltaTime) {
@@ -852,13 +867,12 @@ class Ball {
             }
         }
        
-        // --- FIX: New Stuck Ball (Speed-based) Logic ---
-        const STUCK_SPEED_LIMIT = 0.8; // How slow is "stuck"
-        const STUCK_GRACE_PERIOD = 2.0; // Seconds to wait before countdown
-        const STUCK_COUNTDOWN = 5.0; // Seconds for countdown
+        // --- Stuck Ball (Speed-based) Logic ---
+        const STUCK_SPEED_LIMIT = 0.8; 
+        const STUCK_GRACE_PERIOD = 2.0; 
+        const STUCK_COUNTDOWN = 5.0; 
 
-        // NEW: Check if ball is in a corner
-        const cornerCheckSize = 150; // How big is the corner area
+        const cornerCheckSize = 150; 
         const ballInTop = this.y < cornerCheckSize;
         const ballInBottom = this.y > canvas.height - cornerCheckSize;
         const ballInLeft = this.x < cornerCheckSize;
@@ -871,25 +885,21 @@ class Ball {
             }
         }
 
-        if (speed < STUCK_SPEED_LIMIT && ballIsInCorner) { // MODIFIED: Added ballIsInCorner check
+        if (speed < STUCK_SPEED_LIMIT && ballIsInCorner) { 
             this.stuckTimer += deltaTime;
 
             if (this.stuckTimer > STUCK_GRACE_PERIOD) {
-                // Calculate countdown (2, 1)
                 this.ballStuckCountdown = Math.ceil(STUCK_COUNTDOWN - (this.stuckTimer - STUCK_GRACE_PERIOD));
                
-                if (this.ballStuckCountdown < 1) { // Timer has finished
+                if (this.ballStuckCountdown < 1) { 
                     this.reset();
                     stuckBallMessage = { text: 'Ball stuck! Resetting position...', duration: 2.0 };
-                    // Timers are reset in this.reset()
                 }
             }
         } else {
-            // Ball is moving, reset timers
             this.stuckTimer = 0;
             this.ballStuckCountdown = 0;
         }
-        // --- END NEW FIX ---
     }
    
     draw() {
@@ -913,10 +923,8 @@ class Ball {
         let maxOffset=canvas.height*MAX_CENTER_OFFSET_FACTOR, randomYOffset=Math.random()*2*maxOffset-maxOffset;
         this.x=canvas.width/2; this.y=canvas.height/2+randomYOffset; this.velX=0;this.velY=0;
        
-        // --- FIX: Reset new stuck timers ---
         this.stuckTimer = 0;
         this.ballStuckCountdown = 0;
-        // --- END FIX ---
        
         let r=Math.random();
         if(playerUpgrades.platinumDoubleAll) {
@@ -931,23 +939,67 @@ class Ball {
     }
 }
 
+// CHG: BoostPad class rewritten for cooldown logic
 class BoostPad {
-    constructor(x,y,radius=15){this.x=x;this.y=y;this.radius=radius; this.refillAmount=15;}
+    constructor(x,y,radius=12){ // CHG: Default radius 15 -> 12
+        this.x=x;this.y=y;this.radius=radius; 
+        this.active = true;
+        this.cooldownTimer = 0;
+        this.cooldownDuration = 3.0; // 3 second respawn
+    }
+    
+    update(deltaTime) {
+        if (!this.active) {
+            this.cooldownTimer -= deltaTime;
+            if (this.cooldownTimer <= 0) {
+                this.active = true;
+            }
+        }
+    }
+
     draw() {
+        ctx.save();
+        if (!this.active) {
+            ctx.globalAlpha = 0.3; // Fade out when inactive
+        }
         ctx.strokeStyle="#fbbf24"; ctx.lineWidth=3;
         ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.stroke();
         ctx.fillStyle="#f59e42";
-        ctx.beginPath(); ctx.arc(this.x,this.y,this.radius-8,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); 
+        ctx.arc(this.x,this.y,this.radius-7,0,Math.PI*2); // CHG: Inner radius 8 -> 7
+        ctx.fill();
+        ctx.restore();
     }
+    
     checkCollision(car){
+        if (!this.active) return false; // Can't collide if inactive
         let dist=Math.hypot(this.x-car.x,this.y-car.y);
+        // CHG: Use global CAR_WIDTH
         return dist<this.radius+(CAR_WIDTH * car.sizeMultiplier / 2);
     }
+
+    consume(car) {
+        if (!this.active) return;
+        
+        this.active = false;
+        this.cooldownTimer = this.cooldownDuration;
+        
+        // CHG: User wants 25% (25 boost)
+        let refill = 25; 
+        
+        // Apply player upgrades (logic moved from Car.refillBoost)
+        if(!car.ai && car.playerId===1){
+            refill += (playerUpgrades.boostRegen || 0) * 6;
+        }
+        car.refillBoost(refill);
+    }
 }
+// END CHG
 
 // New class for Goalie Pad
 class GoaliePad {
     constructor() {
+        // CHG: Use global constants
         this.width = GOAL_LINE_WIDTH * 2;
         this.height = GOAL_HEIGHT * 0.20; // 20% of goal height
         this.x = GOAL_LINE_WIDTH / 2;
@@ -970,6 +1022,7 @@ class GoaliePad {
         }
        
         let targetY = targetBall.y;
+        // CHG: Use global GOAL_HEIGHT
         let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
         let playerGoalTop = canvas.height/2 - goalHeight/2;
         let playerGoalBottom = canvas.height/2 + goalHeight/2;
@@ -1016,6 +1069,7 @@ function getInitialAngle(x1,y1,x2,y2){
 function getNumberOfAICars(){return cars.filter(c=>c.ai&&!c.isFriendlyAI).length;}
 
 function addFriendlyAICar(playerId, role, difficultyMultiplier) {
+    // CHG: Use global CAR_WIDTH
     const P1_X=100+CAR_WIDTH/2, center_y=canvas.height/2;
     let newAI = new Car(P1_X + 20, center_y + (Math.random() * 100 - 50),
                         '#00cccc', {}, 'left', playerId,
@@ -1027,6 +1081,7 @@ function addFriendlyAICar(playerId, role, difficultyMultiplier) {
 
 function addEnemyAICar() {
     let center_x=canvas.width/2, center_y=canvas.height/2;
+    // CHG: Use global CAR_WIDTH, CAR_HEIGHT
     let P2_X=canvas.width-100-CAR_WIDTH/2;
     let P1_Y_OFFSET=CAR_HEIGHT*2;
     let aiY=center_y+((Math.random() > 0.5)?P1_Y_OFFSET*(Math.random()*2):-P1_Y_OFFSET*Math.random()*2);
@@ -1034,13 +1089,11 @@ function addEnemyAICar() {
     let newAI = new Car(P2_X,aiY,COLOR_RED,{},'right',2+getNumberOfAICars(),getInitialAngle(P2_X,aiY,center_x,center_y),true,aiDifficulty);
     cars.push(newAI);
    
-    // FIX: Update all AI sizes (This logic is correct and updates all)
     let allAIs = cars.filter(c => c.ai && !c.isFriendlyAI);
     allAIs.forEach((ai, index) => {
         ai.sizeMultiplier = Math.max(0.6, 1.0 - (index * 0.08));
     });
    
-    // Re-assign all roles
     assignAIRoles(allAIs);
 }
 
@@ -1053,9 +1106,9 @@ function assignAIRoles(aiCars){
 }
 
 function setupGameObjects(mode,initialAICount=1){
-    let fieldExpandFactor = Math.min(0.35,(initialAICount-1)*0.06);
-    canvas.width = DEFAULT_WIDTH + DEFAULT_WIDTH*fieldExpandFactor;
-    canvas.height=DEFAULT_HEIGHT + DEFAULT_HEIGHT*fieldExpandFactor;
+    // CHG: Removed fieldExpandFactor, canvas is now fixed size
+    canvas.width = DEFAULT_WIDTH;
+    canvas.height = DEFAULT_HEIGHT;
    
     document.getElementById('game-viewport').style.width = canvas.width + 'px';
     document.getElementById('game-viewport').style.height = canvas.height + 'px';
@@ -1066,6 +1119,7 @@ function setupGameObjects(mode,initialAICount=1){
     if(playerUpgrades.platinumDoubleAll) initialBallCount = 3;
     foreverBalls = [];
     for(let i=0; i<initialBallCount; i++) {
+        // CHG: Use global BALL_RADIUS
         let newBall = new Ball(center_x, center_y, BALL_RADIUS);
         newBall.reset();
         foreverBalls.push(newBall);
@@ -1073,6 +1127,7 @@ function setupGameObjects(mode,initialAICount=1){
     ball = foreverBalls[0];
    
     cars=[];
+    // CHG: Use global CAR_WIDTH, CAR_HEIGHT
     let P1_X=100+CAR_WIDTH/2, P2_X=canvas.width-100-CAR_WIDTH/2;
     let P1_Y_OFFSET=CAR_HEIGHT*2;
    
@@ -1087,8 +1142,12 @@ function setupGameObjects(mode,initialAICount=1){
     }
     else if(mode==="2v2 Multiplayer") {
         cars.push(new Car(P1_X,center_y+P1_Y_OFFSET, COLOR_BLUE, { 'up': 'KeyT', 'down': 'KeyG', 'left': 'KeyF', 'right': 'KeyH', 'boost': 'Space' }, 'left', 2, getInitialAngle(P1_X,center_y+P1_Y_OFFSET,center_x,center_y)));
-        cars.push(new Car(P2_X,center_y-P1_Y_OFFSET, COLOR_RED, { 'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ShiftRight' }, 'right', 3, getInitialAngle(P2_X,center_y-P1_Y_OFFSET,center_x,center_y)));
-        cars.push(new Car(P2_X,center_y+P1_Y_OFFSET, COLOR_RED, { 'up': 'KeyI', 'down': 'KeyK', 'left': 'KeyJ', 'right': 'KeyL', 'boost': 'ControlRight' }, 'right', 4, getInitialAngle(P2_X,center_y+P1_Y_OFFSET,center_x,center_y)));
+        
+        // CHG: Swapped boost keys for P3 and P4 per user request
+        // P3 (Red, Arrows)
+        cars.push(new Car(P2_X,center_y-P1_Y_OFFSET, COLOR_RED, { 'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ControlRight' }, 'right', 3, getInitialAngle(P2_X,center_y-P1_Y_OFFSET,center_x,center_y)));
+        // P4 (Red, IJKL)
+        cars.push(new Car(P2_X,center_y+P1_Y_OFFSET, COLOR_RED, { 'up': 'KeyI', 'down': 'KeyK', 'left': 'KeyJ', 'right': 'KeyL', 'boost': 'ShiftRight' }, 'right', 4, getInitialAngle(P2_X,center_y+P1_Y_OFFSET,center_x,center_y)));
     }
    
     if(mode==="Vs Computer"){
@@ -1195,23 +1254,44 @@ function updateUpgradesDisplay() {
 // --- Drawing Functions ---
 function drawField(){
     ctx.fillStyle=COLOR_FIELD; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // --- NEW: Draw Goal Net Areas ---
+    let goalDepth = 15;
+    let goalHeight = GOAL_HEIGHT;
+    if (playerUpgrades.shortGoal) goalHeight *= 0.7;
+    let aiGoalHeight = GOAL_HEIGHT;
+    if (playerUpgrades.goalExpansion) aiGoalHeight *= 1.3;
+    
+    let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2;
+    let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2;
+
+    // Blue Goal Net
+    ctx.fillStyle = 'rgba(0, 102, 204, 0.2)'; // Faded blue
+    ctx.fillRect(0, playerGoalTop, goalDepth, playerGoalBottom - playerGoalTop);
+    // Red Goal Net
+    ctx.fillStyle = 'rgba(204, 0, 0, 0.2)'; // Faded red
+    ctx.fillRect(canvas.width - goalDepth, aiGoalTop, goalDepth, aiGoalBottom - aiGoalTop);
+    // --- END NEW ---
+
+
     ctx.strokeStyle="#dcdcdc"; ctx.lineWidth=4;
     ctx.beginPath(); ctx.moveTo(canvas.width/2,0); ctx.lineTo(canvas.width/2,canvas.height); ctx.stroke();
     ctx.beginPath(); ctx.arc(canvas.width/2,canvas.height/2,80,0,Math.PI*2); ctx.stroke();
    
-    let goalHeight = GOAL_HEIGHT;
-    if (playerUpgrades.shortGoal) goalHeight *= 0.7;
+    // CHG: Use global GOAL_HEIGHT
+    // let goalHeight = GOAL_HEIGHT; // Moved up
+    // if (playerUpgrades.shortGoal) goalHeight *= 0.7; // Moved up
    
-    let aiGoalHeight = GOAL_HEIGHT;
-    if (playerUpgrades.goalExpansion) aiGoalHeight *= 1.3;
+    // let aiGoalHeight = GOAL_HEIGHT; // Moved up
+    // if (playerUpgrades.goalExpansion) aiGoalHeight *= 1.3; // Moved up
    
-    let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2;
-    let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2;
+    // let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2; // Moved up
+    // let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2; // Moved up
    
-    ctx.strokeStyle=COLOR_BLUE; ctx.lineWidth=GOAL_LINE_WIDTH;
+    ctx.strokeStyle=COLOR_BLUE; ctx.lineWidth=GOAL_LINE_WIDTH; // Uses global
     ctx.beginPath(); ctx.moveTo(0,playerGoalTop); ctx.lineTo(0,playerGoalBottom); ctx.stroke();
    
-    ctx.strokeStyle=COLOR_RED; ctx.lineWidth=GOAL_LINE_WIDTH;
+    ctx.strokeStyle=COLOR_RED; ctx.lineWidth=GOAL_LINE_WIDTH; // Uses global
     ctx.beginPath(); ctx.moveTo(canvas.width,aiGoalTop); ctx.lineTo(canvas.width,aiGoalBottom); ctx.stroke();
    
     boostPads.forEach(pad=>pad.draw());
@@ -1220,9 +1300,7 @@ function drawField(){
 
 // --- Collision & Goal Logic ---
 function checkCarBallCollision(car, ball){
-    // if (!car.ai && playerUpgrades.ghostCar && car.effects.ghost) return;
-    // if (!car.ai && playerUpgrades.platinumInvincible && car.effects.invincible) return; // Ability removed
-   
+    // CHG: Use global BALL_RADIUS, CAR_WIDTH
     let dx=ball.x-car.x, dy=ball.y-car.y;
     let collisionRadius=BALL_RADIUS+(CAR_WIDTH * car.sizeMultiplier * 0.5);
     let dist=Math.hypot(dx,dy);
@@ -1259,6 +1337,7 @@ function checkCarBallCollision(car, ball){
             let aiCars = cars.filter(c => c.ai && !c.isFriendlyAI);
             aiCars.forEach(ai => {
                 let aiDist = Math.hypot(ai.x - car.x, ai.y - car.y);
+                // CHG: Use global CAR_WIDTH
                 if (aiDist < (CAR_WIDTH * car.sizeMultiplier * 2.5)) {
                     ai.isStunned = true;
                     ai.stunDuration = Math.max(ai.stunDuration, 2.0); // 2 seconds
@@ -1271,8 +1350,8 @@ function checkCarBallCollision(car, ball){
 
 function checkCarCarCollision(car1, car2) {
     if ((!car1.ai && car1.effects.ghost && car2.ai) || (!car2.ai && car2.effects.ghost && car1.ai)) return;
-    // if ((!car1.ai && car1.effects.invincible) || (!car2.ai && car2.effects.invincible)) return; // Ability removed
    
+    // CHG: Use global CAR_WIDTH
     let radius1 = (CAR_WIDTH * car1.sizeMultiplier / 2) * 0.9;
     let radius2 = (CAR_WIDTH * car2.sizeMultiplier / 2) * 0.9;
     let collisionDistance = radius1 + radius2;
@@ -1316,8 +1395,8 @@ function checkCarCarCollision(car1, car2) {
 
 
 function checkGoal(ball) {
+    // CHG: Use global GOAL_HEIGHT
     let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
-   
     let aiGoalHeight = GOAL_HEIGHT;
     if (playerUpgrades.goalExpansion) aiGoalHeight *= 1.3;
    
@@ -1340,13 +1419,11 @@ function handleGoal(scoringTeam, scoredBall) {
         scoreLeft += scoredBall.pointType;
         playerLevel += scoredBall.pointType;
        
-        // Check for upgrade (at level 5, 10, 15...)
-        // This logic correctly triggers when crossing a multiple of 5
+        // This logic is correct, it triggers when crossing a multiple of 5
         if (endConditionType === 'forever' && Math.floor(playerLevel / 5) > Math.floor(oldLevel / 5)) {
             pendingUpgradePick = true;
         }
        
-        // Check for AI scaling
         let oldTenBlock = Math.floor(oldLevel / 10);
         let newTenBlock = Math.floor(playerLevel / 10);
        
@@ -1373,6 +1450,7 @@ function handleGoal(scoringTeam, scoredBall) {
         });
        
         if(playerUpgrades.ballSplit && foreverBalls.length < 5) {
+             // CHG: Use global BALL_RADIUS
              const newBall = new Ball(scoredBall.x, scoredBall.y, BALL_RADIUS, 1);
              newBall.velX = Math.random() > 0.5 ? 10 : -10;
              newBall.velY = Math.random() > 0.5 ? 10 : -10;
@@ -1382,7 +1460,8 @@ function handleGoal(scoringTeam, scoredBall) {
     else if (scoringTeam === 'right') { // AI scored
         scoreRight += scoredBall.pointType;
         if (playerUpgrades.freePad) {
-            boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 25));
+            // CHG: Scaled freePad radius 25 -> 20
+            boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20));
         }
         if (endConditionType === 'forever' && scoreRight >= scoreLeft + 5) {
              gameState = 'finished';
@@ -1424,18 +1503,25 @@ function update(deltaTime) {
         if (playerUpgrades.boostRain && Math.random() < 0.005) { cars[0].refillBoost(30); }
         if (endConditionType === 'timed') { gameTimer=Math.max(0,gameTimer-deltaTime); }
        
-        // FIX: Pass deltaTime to handleInput for AI logic
         cars.forEach(car => { car.handleInput(deltaTime); car.move(deltaTime); });
         foreverBalls.forEach(ball => ball.move(deltaTime));
+        // NEW: Update boost pads
+        boostPads.forEach(pad => pad.update(deltaTime));
        
         if (goaliePad) goaliePad.update(deltaTime);
 
         cars.forEach(car => foreverBalls.forEach(ball => checkCarBallCollision(car, ball)));
         for(let i=0; i<cars.length; i++) for(let j=i+1; j<cars.length; j++) checkCarCarCollision(cars[i], cars[j]);
        
+        // CHG: Updated boost pad logic
         cars.forEach(car => {
-            boostPads.forEach(pad => { if(pad.checkCollision(car)) car.refillBoost(pad.refillAmount); });
+            boostPads.forEach(pad => { 
+                if (pad.checkCollision(car)) { // checkCollision now checks for active status
+                    pad.consume(car); 
+                }
+            });
         });
+        // END CHG
        
         const scoredBalls = [];
         foreverBalls.forEach(ball => {
@@ -1473,7 +1559,7 @@ function gameLoop(currentTime) {
         foreverBalls.forEach(ball => ball.draw());
     }
    
-    // --- FIX: Draw Stuck Ball Countdown (Speed-based) ---
+    // --- Draw Stuck Ball Countdown ---
     foreverBalls.forEach(b => {
         if (b.ballStuckCountdown > 0) {
             ctx.save();
@@ -1495,7 +1581,6 @@ function gameLoop(currentTime) {
             ctx.restore();
         }
     });
-    // --- END FIX ---
    
     if (stuckBallMessage.duration > 0) {
         ctx.save();
@@ -1520,6 +1605,10 @@ function gameLoop(currentTime) {
 function drawMainMenu() {
     gameState = 'menu';
     overlay.classList.remove('hidden');
+    // NEW: Hide buttons
+    document.getElementById('pause-btn').classList.add('hidden');
+    document.getElementById('fullscreen-btn').classList.add('hidden');
+    
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-md">
             <h1 class="text-5xl font-extrabold mb-8 text-yellow-400">2D ROCKET LEAGUE</h1>
@@ -1553,6 +1642,9 @@ function drawMainMenu() {
 function drawGameSettingsMenu(mode) {
     gameState = 'menu';
     overlay.classList.remove('hidden');
+    // NEW: Hide buttons
+    document.getElementById('pause-btn').classList.add('hidden');
+    document.getElementById('fullscreen-btn').classList.add('hidden');
 
     let foreverModeOption = '';
     if (mode === 'Vs Computer') {
@@ -1645,6 +1737,8 @@ function drawUpgradeMenu() {
 
 function drawGameOver(reason = null) {
     pauseBtn.classList.add('hidden');
+    // NEW: Hide fullscreen btn
+    document.getElementById('fullscreen-btn').classList.add('hidden');
     overlay.classList.remove('hidden');
    
     let message = 'DRAW!';
@@ -1745,6 +1839,8 @@ function handleMenuSelection(index) {
         gameState = 'menu';
         uiPanel.classList.add('hidden'); // Hide UI panels
         foreverStatusPanel.classList.add('hidden');
+        // NEW: Hide fullscreen btn
+        document.getElementById('fullscreen-btn').classList.add('hidden');
         drawMainMenu();
     }
     else if (selection === 'resume') {
@@ -1801,6 +1897,8 @@ function startGame(mode, endType='timed') {
         gameState = 'playing';
         overlay.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
+        // NEW: Show fullscreen btn
+        document.getElementById('fullscreen-btn').classList.remove('hidden');
         lastTime = performance.now();
         if (animationFrameId) cancelAnimationFrame(animationFrameId); // Clear any old loop
         animationFrameId = requestAnimationFrame(gameLoop);
@@ -1851,11 +1949,55 @@ function togglePause() {
         gameState = 'playing';
         overlay.classList.add('hidden');
         pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
+        // NEW: Make sure fullscreen btn is visible
+        document.getElementById('fullscreen-btn').classList.remove('hidden');
        
         lastTime = performance.now();
         animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
+
+// --- NEW: Fullscreen Functions ---
+function toggleFullScreen() {
+    // CHG: Target the whole game-container, not just the viewport
+    const gameContainer = document.getElementById('game-container');
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        // Enter fullscreen
+        if (gameContainer.requestFullscreen) {
+            gameContainer.requestFullscreen();
+        } else if (gameContainer.webkitRequestFullscreen) { /* Safari */
+            gameContainer.webkitRequestFullscreen();
+        } else if (gameContainer.msRequestFullscreen) { /* IE11 */
+            gameContainer.msRequestFullscreen();
+        }
+        fullscreenBtn.innerHTML = '<span class="mr-2">📺</span> Exit Fullscreen';
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* Safari */
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+            document.msExitFullscreen();
+        }
+        fullscreenBtn.innerHTML = '<span class="mr-2">📺</span> Fullscreen';
+    }
+}
+
+// NEW: Listen for fullscreen changes (e.g., user pressing Esc)
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+        fullscreenBtn.innerHTML = '<span class="mr-2">📺</span> Fullscreen';
+    }
+});
+document.addEventListener('webkitfullscreenchange', () => { // Safari
+    if (!document.webkitFullscreenElement) {
+        fullscreenBtn.innerHTML = '<span class="mr-2">📺</span> Fullscreen';
+    }
+});
+// NEW: Add click listener for the button
+fullscreenBtn.addEventListener('click', toggleFullScreen);
+
 
 // --- Keyboard Listeners ---
 window.addEventListener('keydown', (e) => {
@@ -1899,6 +2041,7 @@ window.addEventListener('keyup', (e) => {
 
 // --- Initial load ---
 window.onload = function () {
+    // CHG: Use new global defaults
     canvas.width = DEFAULT_WIDTH;
     canvas.height = DEFAULT_HEIGHT;
     document.getElementById('game-viewport').style.width = canvas.width + 'px';
