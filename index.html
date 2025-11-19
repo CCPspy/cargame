@@ -92,16 +92,25 @@
         }
         .upgrade-icon-container:hover .upgrade-tooltip { visibility: visible; opacity: 1; }
         
+        /* Base Tiers */
         .ability-level-bronze { background: #78350f; color: #fed7aa; border: 1px solid #92400e; }
         .ability-level-silver { background: #374151; color: #e5e7eb; border: 1px solid #6b7280; }
         .ability-level-gold { background: #854d0e; color: #fef08a; border: 1px solid #eab308; }
         .ability-level-platinum { background: #1e1b4b; color: #c7d2fe; border: 1px solid #818cf8; box-shadow: 0 0 10px #6366f1; }
+
+        /* Evolved Tiers - Similar but fancier */
+        .ability-level-bronze-evo { background: #451a03; color: #ffedd5; border: 2px solid #f97316; box-shadow: 0 0 8px #ea580c; }
+        .ability-level-silver-evo { background: #1f2937; color: #f3f4f6; border: 2px solid #9ca3af; box-shadow: 0 0 8px #d1d5db; }
+        .ability-level-gold-evo { background: #422006; color: #fef9c3; border: 2px solid #facc15; box-shadow: 0 0 12px #eab308; }
+        .ability-level-platinum-evo { background: #312e81; color: #e0e7ff; border: 2px solid #a5b4fc; box-shadow: 0 0 15px #818cf8; }
         
         .notification-toast {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px;
+            background: rgba(0,0,0,0.9); padding: 15px 25px; border-radius: 10px;
             color: white; font-weight: bold; pointer-events: none;
-            animation: fadeOut 3s forwards; z-index: 40;
+            animation: fadeOut 3s forwards; z-index: 60;
+            border: 2px solid #fcd34d; box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            text-align: center;
         }
         @keyframes fadeOut { 0% { opacity: 1; top: 20px; } 80% { opacity: 1; top: 20px; } 100% { opacity: 0; top: 0px; } }
 
@@ -207,9 +216,11 @@ let selectedUpgradeIndex = 0;
 let menuOptions = []; 
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// --- EXPANDED ABILITY POOLS ---
+// --- EXPANDED ABILITY POOLS WITH EVOLUTIONS ---
 
-// 50 Bronze ideas (Implemented ~20 key ones to preserve code size while meeting variety)
+// Helper to create evolution definitions
+// Evolution format: { id, label, icon, desc, tier: 'bronze-evo', isEvo: true, baseId: 'originalId' }
+
 const BRONZE_UPGRADES = [
     {id:'accel',label:'Engine Chip',icon:'⚡',desc:'Acceleration +10%.',tier:'bronze'},
     {id:'turn',label:'Power Steering',icon:'🌀',desc:'Rotation speed +15%.',tier:'bronze'},
@@ -231,7 +242,6 @@ const BRONZE_UPGRADES = [
     {id:'longBody',label:'Limo Build',icon:'↕️',desc:'Car becomes longer.',tier:'bronze'},
 ];
 
-// 25 Silver ideas (Implemented key ones)
 const SILVER_UPGRADES = [
     {id:'miniRobot',label:'Atk Drone',icon:'🤖',desc:'Spawns a friendly AI attacker.',tier:'silver', permanent:true},
     {id:'goalExpansion',label:'Open Net',icon:'🥅',desc:'AI goal is 30% wider.',tier:'silver', permanent:true},
@@ -246,7 +256,6 @@ const SILVER_UPGRADES = [
     {id:'oilSlick',label:'Oil System',icon:'🛢️',desc:'Enemies slide more (lower friction).',tier:'silver', permanent:true},
 ];
 
-// 10 Gold ideas
 const GOLD_UPGRADES = [
     {id:'superStun',label:'Thunder Hit',icon:'💫',desc:'Scoring stuns AI on next contact.',tier:'gold'},
     {id:'extraUpgrade',label:'Double Dip',icon:'🎈',desc:'Get an extra upgrade choice next time.',tier:'gold'},
@@ -260,7 +269,6 @@ const GOLD_UPGRADES = [
     {id:'gravityWell',label:'Gravity Well',icon:'🌌',desc:'Passive pull on ball towards enemy goal.',tier:'gold'},
 ];
 
-// 5 Platinum ideas
 const PLATINUM_UPGRADES = [
     {id:'platinumDoubleAll',label:'Chaos Mode',icon:'🌈',desc:'3 Balls. 3x Points potential.',tier:'platinum', permanent:true},
     {id:'platinumSuperAI',label:'Virus Upload',icon:'👾',desc:'AI confuses directions for 8s after score.',tier:'platinum'},
@@ -268,20 +276,65 @@ const PLATINUM_UPGRADES = [
     {id:'platinumOmniBoost',label:'Infinite Fuel',icon:'🔥',desc:'Boost never runs out.',tier:'platinum'},
     {id:'platinumTeleport',label:'Blink Drive',icon:'✨',desc:'Teleport to ball (Press T, 5s CD).',tier:'platinum'},
 ];
+
+// EVOLUTIONS MAPPING
+// Simplified evolution logic: For most, it just doubles effectiveness or adds a perk.
+const EVOLUTIONS = {
+    // Bronze Evos
+    'accel': {id:'accel_evo', label:'Hyper Engine', icon:'⚡⚡', desc:'Acceleration +25%.', tier:'bronze-evo'},
+    'turn': {id:'turn_evo', label:'Gyro Steering', icon:'🌀✨', desc:'Rotation speed +30%.', tier:'bronze-evo'},
+    'maxBoost': {id:'maxBoost_evo', label:'Nuclear Tank', icon:'⛽☢️', desc:'Boost capacity +50.', tier:'bronze-evo'},
+    'speed': {id:'speed_evo', label:'Sonic Gear', icon:'🚀🔥', desc:'Top speed +15%.', tier:'bronze-evo'},
+    'kick': {id:'kick_evo', label:'Titanium Bumper', icon:'🦵💎', desc:'Ball hit knockback +25%.', tier:'bronze-evo'},
+    'bigCar': {id:'bigCar_evo', label:'Giga Frame', icon:'🚚🦖', desc:'Size +20%, Mass +25%.', tier:'bronze-evo'},
+    'boostRegen': {id:'boostRegen_evo', label:'Fusion Core', icon:'🔋⚛️', desc:'Pad refill +15.', tier:'bronze-evo'},
+    'frictionFix': {id:'frictionFix_evo', label:'Spider Tires', icon:'🦶🕷️', desc:'Zero drift.', tier:'bronze-evo'},
+    'brake': {id:'brake_evo', label:'Anchor Brakes', icon:'🅿️⚓', desc:'Instant stop.', tier:'bronze-evo'},
+    'stickTires': {id:'stickTires_evo', label:'Glue Tires', icon:'🧲🧴', desc:'Zero recoil.', tier:'bronze-evo'},
+    'slipStream': {id:'slipStream_evo', label:'Jetstream', icon:'💨✈️', desc:'Gain massive boost near AI.', tier:'bronze-evo'},
+    
+    // Silver Evos
+    'miniRobot': {id:'miniRobot_evo', label:'Elite Drone', icon:'🤖👑', desc:'Spawns a smarter, faster attacker.', tier:'silver-evo'},
+    'goalExpansion': {id:'goalExpansion_evo', label:'Giant Net', icon:'🥅🏟️', desc:'AI goal is 60% wider.', tier:'silver-evo'},
+    'doubleKick': {id:'doubleKick_evo', label:'One Punch', icon:'🥊💥', desc:'Triples ball impact force.', tier:'silver-evo'},
+    'ballMagnet': {id:'ballMagnet_evo', label:'Tractor Beam', icon:'🧲🛸', desc:'Ball follows you for longer.', tier:'silver-evo'},
+    'shrinkEnemies': {id:'shrinkEnemies_evo', label:'Micro Ray', icon:'🔬🧬', desc:'Enemies become 50% size.', tier:'silver-evo'},
+    
+    // Gold Evos
+    'superStun': {id:'superStun_evo', label:'Zeus Strike', icon:'💫⚡', desc:'Stun duration doubled.', tier:'gold-evo'},
+    'aiSlow': {id:'aiSlow_evo', label:'System Crash', icon:'🐢💻', desc:'AI speed -80% after score.', tier:'gold-evo'},
+    'timeFreeze': {id:'timeFreeze_evo', label:'Time Lock', icon:'⏱️🔒', desc:'Freeze AI for 4s.', tier:'gold-evo'},
+    
+    // Plat Evos
+    'platinumOmniBoost': {id:'platinumOmniBoost_evo', label:'Cosmic Fuel', icon:'🔥🌌', desc:'Infinite Boost + 20% Speed.', tier:'platinum-evo'},
+    'platinumTeleport': {id:'platinumTeleport_evo', label:'Warp Drive', icon:'✨🚪', desc:'Teleport cooldown 1s.', tier:'platinum-evo'}
+};
+
+// Helper to get pool
+function getEvolutionPool(baseTier) {
+    return Object.values(EVOLUTIONS).filter(e => e.tier.startsWith(baseTier));
+}
+
 const ALL_UPGRADES = [...BRONZE_UPGRADES, ...SILVER_UPGRADES, ...GOLD_UPGRADES, ...PLATINUM_UPGRADES];
 
 // --- Helper Functions ---
-function showNotification(text) {
+function showNotification(text, isEvolution = false) {
     const n = document.createElement('div');
     n.className = 'notification-toast';
-    n.innerText = text;
+    if(isEvolution) {
+        n.style.borderColor = '#a855f7'; // Purple for evo
+        n.style.boxShadow = '0 0 20px #a855f7';
+        n.innerHTML = `<span class="text-2xl">🧬</span><br>${text}`;
+    } else {
+        n.innerText = text;
+    }
     document.getElementById('notifications').appendChild(n);
     setTimeout(() => n.remove(), 3000);
 }
 
 function getAbilityTierByLevel(level) {
     // Level 1-19: Bronze
-    if (level < 20) return "bronze"; // CHANGED to 20
+    if (level < 20) return "bronze"; 
     // Level 20-49: Silver
     if (level < 50) return Math.random() < 0.7 ? "silver" : "bronze";
     // Level 50-99: Gold
@@ -303,18 +356,37 @@ function getPoolForTier(tier) {
     if (tier === "silver") return SILVER_UPGRADES;
     if (tier === "gold") return GOLD_UPGRADES;
     if (tier === "platinum") return PLATINUM_UPGRADES;
+    // Evo tiers
+    if (tier.includes('evo')) return Object.values(EVOLUTIONS).filter(e => e.tier === tier);
+    return BRONZE_UPGRADES;
 }
 
 function randomAbilities(amt, disallowIds=[]) {
     let chosen = [];
-    // Removed the disallow logic to allow duplicates in selection as requested
     for (let i = 0; i < amt; i++) {
         let tier = getAbilityTierByLevel(playerLevel);
-        // Still check permanent upgrades that shouldn't be picked twice permanently
-        let pool = getPoolForTier(tier);
         
-        // Filter out abilities that are permanent and already owned
-        pool = pool.filter(u => !u.permanent || !playerUpgrades[u.id]);
+        // Evolution Direct Drop Chance
+        let evoChance = Math.random();
+        let attemptEvo = false;
+        let evoTier = null;
+
+        if (playerLevel >= 25 && tier === 'bronze' && evoChance < 0.1) { attemptEvo = true; evoTier = 'bronze-evo'; }
+        if (playerLevel >= 50 && tier === 'silver' && evoChance < 0.1) { attemptEvo = true; evoTier = 'silver-evo'; }
+        if (playerLevel >= 100 && tier === 'gold' && evoChance < 0.1) { attemptEvo = true; evoTier = 'gold-evo'; }
+        if (playerLevel >= 150 && tier === 'platinum' && evoChance < 0.1) { attemptEvo = true; evoTier = 'platinum-evo'; }
+
+        let pool;
+        if (attemptEvo) {
+            pool = getPoolForTier(evoTier);
+            // Filter if already owned max
+            pool = pool.filter(u => !playerUpgrades[u.id]); 
+        } 
+        
+        if (!pool || pool.length === 0) {
+            pool = getPoolForTier(tier);
+            pool = pool.filter(u => !u.permanent || !playerUpgrades[u.id]);
+        }
        
         if (pool.length === 0) pool = BRONZE_UPGRADES; // Fallback
        
@@ -336,7 +408,7 @@ function requestUpgradePicker() {
 
 function rerollUpgradeOptions() {
     let numPicks = 3 + extraUpgradePicks;
-    const excluded = []; // Empty because we allow duplicates
+    const excluded = []; 
     upgradeOptions = randomAbilities(numPicks, excluded);
    
     if (upgradeRerollsUsed < 1 && !playerUpgrades.rerollPlus) {
@@ -352,27 +424,65 @@ function applyUpgrade(ability) {
     if (ability.id === 'extraUpgrade') {
         extraUpgradePicks++;
     } else {
-        playerUpgrades[ability.id] = (playerUpgrades[ability.id] || 0) + 1;
-        if (playerAbilities.findIndex(a => a.id === ability.id) === -1) {
-            playerAbilities.push(ability);
+        // Evolution Logic: Check if adding this makes count 3
+        let currentCount = playerUpgrades[ability.id] || 0;
+        let isEvo = ability.tier.includes('evo');
+        
+        // If it's already an evo, just add it (max 1 usually, but logic handles num)
+        if (isEvo) {
+             playerUpgrades[ability.id] = 1;
+             if (playerAbilities.findIndex(a => a.id === ability.id) === -1) playerAbilities.push(ability);
+             showNotification(`ACQUIRED EVOLUTION:<br>${ability.label}`, true);
+        } else {
+            // Normal ability
+            currentCount++;
+            
+            // Check for Evolution trigger
+            let evoDef = EVOLUTIONS[ability.id];
+            if (currentCount >= 3 && evoDef) {
+                // Evolve!
+                delete playerUpgrades[ability.id]; // Remove base
+                // Remove base from UI list
+                playerAbilities = playerAbilities.filter(a => a.id !== ability.id);
+                
+                // Add Evo
+                playerUpgrades[evoDef.id] = 1;
+                playerAbilities.push(evoDef);
+                
+                showNotification(`ABILITY EVOLVED!<br>${ability.label} ➜ ${evoDef.label}`, true);
+            } else {
+                // Normal add
+                playerUpgrades[ability.id] = currentCount;
+                if (playerAbilities.findIndex(a => a.id === ability.id) === -1) {
+                    playerAbilities.push(ability);
+                }
+            }
         }
     }
    
     // Apply instant effects
     cars.forEach(c => {
         if(!c.ai) c.applyPlayerUpgrades(playerUpgrades);
-        else if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); // Re-apply debuffs to enemies
+        else if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); 
     });
 
-    if (ability.id === 'miniRobot' && !cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 1.5);
-    if (ability.id === 'smolRobot' && !cars.some(c => c.playerId === 1002)) addFriendlyAICar(1002, 'defender', 1.0);
-    if (ability.id === 'autoGoalie' && !goaliePad) { goaliePad = new GoaliePad(); }
-    if (ability.id === 'platinumDoubleAll' && foreverBalls.length === 1) {
-        foreverBalls.push(new Ball(canvas.width/2, canvas.height/2, BALL_RADIUS));
-        foreverBalls.push(new Ball(canvas.width/2, canvas.height/2, BALL_RADIUS));
-        foreverBalls.forEach(b => b.reset());
+    // Re-check spawnables
+    // Basic Spawns
+    if (playerUpgrades['miniRobot'] && !cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 1.5);
+    if (playerUpgrades['smolRobot'] && !cars.some(c => c.playerId === 1002)) addFriendlyAICar(1002, 'defender', 1.0);
+    // Evo Spawns (Override basics if evolved)
+    if (playerUpgrades['miniRobot_evo']) {
+        // Remove old if exists
+        let old = cars.findIndex(c => c.playerId === 1001);
+        if(old !== -1) cars.splice(old, 1);
+        if(!cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 2.0); // Stronger
     }
-   
+    
+    if (playerUpgrades['autoGoalie'] || playerUpgrades['autoGoalie_evo']) { 
+        if(!goaliePad) goaliePad = new GoaliePad(); 
+        if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20; // Wider pad
+    }
+    
     updateUpgradesDisplay();
 }
 
@@ -412,7 +522,9 @@ class Car {
         this.teleportCooldown = 0;
        
         this.stuckInCornerTimer = 0;
-        this.stuckInCornerThreshold = 5.0;
+        this.aiStuckState = 'none'; 
+        this.aiStuckStateTimer = 0;
+        this.stuckThresholdDist = 60 + Math.random() * 30; // Randomized distance
        
         this.updateDifficulty(difficulty);
         this.resetPos={x,y,angle:initial_angle};
@@ -426,26 +538,20 @@ class Car {
             this.rotationSpeed = this.baseRotationSpeed;
             this.sideFrictionFactor = this.baseSideFrictionFactor;
             
-            // AI Defender Size Change
             if (this.role === 'defender' && !this.isFriendlyAI) {
                 this.sizeMultiplier = 0.85;
             }
-
-            // AI Shrink Debuff
-            if (!this.isFriendlyAI && playerUpgrades.shrinkEnemies) {
-                this.sizeMultiplier *= 0.8;
+            if (!this.isFriendlyAI && (playerUpgrades.shrinkEnemies || playerUpgrades.shrinkEnemies_evo)) {
+                this.sizeMultiplier *= (playerUpgrades.shrinkEnemies_evo ? 0.5 : 0.8);
             }
             if (!this.isFriendlyAI && playerUpgrades.oilSlick) {
                 this.sideFrictionFactor *= 0.5;
             }
-            
-            // Level 100+ Buffs
             if (!this.isFriendlyAI && playerLevel > 100) {
                  const extraLevels = Math.floor((playerLevel - 100) / 10);
                  this.acceleration += extraLevels * 0.02;
                  this.mass = 1.0 + (extraLevels * 0.1);
             }
-
         } else {
             this.applyPlayerUpgrades(playerUpgrades);
         }
@@ -453,23 +559,26 @@ class Car {
    
     applyPlayerUpgrades(upgrades) {
         if (this.ai) return; 
-        let count = id => upgrades[id]||0;
-       
-        this.acceleration = this.baseAcceleration * (1 + count('accel') * 0.1);
-        this.rotationSpeed = this.baseRotationSpeed * (1 + count('turn') * 0.15);
-        this.maxBoost = 100 + count('maxBoost') * 20;
-        this.baseMaxSpeed = 5.0 * (1 + count('speed') * 0.05);
-        let frictionFactor = 1 - count('frictionFix') * 0.15;
-        this.sideFrictionFactor = this.baseSideFrictionFactor * Math.max(0.1, frictionFactor);
+        // Helper to sum count of base + evo
+        let count = (id) => (upgrades[id]||0) + (upgrades[id+'_evo'] ? 1 : 0);
+        let hasEvo = (id) => !!upgrades[id+'_evo'];
+
+        this.acceleration = this.baseAcceleration * (1 + count('accel') * (hasEvo('accel')?0.25:0.1));
+        this.rotationSpeed = this.baseRotationSpeed * (1 + count('turn') * (hasEvo('turn')?0.3:0.15));
+        this.maxBoost = 100 + count('maxBoost') * (hasEvo('maxBoost')?50:20);
+        this.baseMaxSpeed = 5.0 * (1 + count('speed') * (hasEvo('speed')?0.15:0.05));
+        let frictionFactor = 1 - count('frictionFix') * (hasEvo('frictionFix')?1.0:0.15); // Evo = zero drift
+        this.sideFrictionFactor = this.baseSideFrictionFactor * Math.max(0.0, frictionFactor);
        
         this.sizeMultiplier = 1.0; 
-        if (count('bigCar') > 0) this.sizeMultiplier *= 1.10;
+        if (count('bigCar') > 0) this.sizeMultiplier *= (hasEvo('bigCar')?1.20:1.10);
         if (count('heavyDuty') > 0) this.mass = 1.25; else this.mass = 1.0;
+        if (hasEvo('bigCar')) this.mass = 1.5;
 
         this.widthMultiplier = count('wideBody') ? 1.3 : 1.0;
         this.lengthMultiplier = count('longBody') ? 1.3 : 1.0;
         
-        if (count('platinumOmniBoost')) this.maxBoost = 9999;
+        if (count('platinumOmniBoost') || upgrades['platinumOmniBoost_evo']) this.maxBoost = 9999;
         this.boost = Math.min(this.maxBoost,this.boost); 
     }
    
@@ -485,22 +594,21 @@ class Car {
         if (keys[this.controls['up']]) {accelerationForce=this.acceleration;this.throttleDirection=1;}
         if (keys[this.controls['down']]) {
             let revMult = playerUpgrades.reverseKing ? 1.3 : 0.7;
-            let brakePower = playerUpgrades.brake ? 2.0 : 1.0;
+            let brakePower = (playerUpgrades.brake_evo ? 50.0 : (playerUpgrades.brake ? 2.0 : 1.0)); // Instant stop evo
             accelerationForce = -this.acceleration * (keys[this.controls['up']] ? brakePower : revMult);
             this.throttleDirection=-1;
         }
         
-        // Teleport Logic
-        if (playerUpgrades.platinumTeleport && keys['KeyT'] && this.teleportCooldown <= 0) {
+        let tpTime = playerUpgrades.platinumTeleport_evo ? 1.0 : 5.0;
+        if ((playerUpgrades.platinumTeleport || playerUpgrades.platinumTeleport_evo) && keys['KeyT'] && this.teleportCooldown <= 0) {
             const target = foreverBalls[0];
-            // Blink behind the ball towards enemy goal
             let dx = canvas.width - target.x;
             let dy = (canvas.height/2) - target.y;
             let angle = Math.atan2(dy, dx);
             this.x = target.x - Math.cos(angle) * 50;
             this.y = target.y - Math.sin(angle) * 50;
             this.velX = target.velX; this.velY = target.velY;
-            this.teleportCooldown = 5.0;
+            this.teleportCooldown = tpTime;
             showNotification("BLINK!");
         }
         if (this.teleportCooldown > 0) this.teleportCooldown -= deltaTime;
@@ -514,7 +622,7 @@ class Car {
         if (gameMode === 'Vs Computer' && this.playerId === 1) {
             if (keys['ShiftLeft'] || keys['ShiftRight']) boostActive = true;
         }
-        if (playerUpgrades.platinumOmniBoost) this.boost = 9999;
+        if (playerUpgrades.platinumOmniBoost || playerUpgrades.platinumOmniBoost_evo) this.boost = 9999;
         this.boosting = boostActive && this.boost > 0;
        
         if (this.boosting) {
@@ -529,8 +637,107 @@ class Car {
 
     handleAI(deltaTime) {
         if (!ball || this.isStunned) return;
+        
+        // 1. STUCK STATE MACHINE (Rewritten sequence)
+        if (this.aiStuckState !== 'none') {
+            this.aiStuckStateTimer -= deltaTime;
+            
+            if (this.aiStuckState === 'reversing') {
+                // 1. Move back
+                this.throttleDirection = -1;
+                let rad=Math.PI*this.angle/180;
+                this.velX-=Math.cos(rad)*this.acceleration;
+                this.velY+=Math.sin(rad)*this.acceleration;
+                
+                if (this.aiStuckStateTimer <= 0) { 
+                    this.aiStuckState = 'wall_seek'; 
+                    this.aiStuckStateTimer = 0.5; 
+                }
+            } else if (this.aiStuckState === 'wall_seek') {
+                // 2. Drive towards second closest wall
+                // Determine walls dists
+                let dists = [
+                    {w:'left', d:this.x}, 
+                    {w:'right', d:canvas.width-this.x}, 
+                    {w:'top', d:this.y}, 
+                    {w:'bottom', d:canvas.height-this.y}
+                ];
+                dists.sort((a,b) => a.d - b.d);
+                let targetWall = dists[1]; // 2nd closest
+                
+                let tx=this.x, ty=this.y;
+                if(targetWall.w==='left') tx=0;
+                else if(targetWall.w==='right') tx=canvas.width;
+                else if(targetWall.w==='top') ty=0;
+                else if(targetWall.w==='bottom') ty=canvas.height;
+                
+                const dx=tx-this.x, dy=ty-this.y;
+                const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
+                let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
+                if(angleDiff>this.rotationSpeed){this.angle=(this.angle+this.rotationSpeed)%360;}
+                else if(angleDiff<-this.rotationSpeed){this.angle=(this.angle-this.rotationSpeed)%360;}
+                this.throttleDirection = 1;
+                let rad=Math.PI*this.angle/180;
+                this.velX+=Math.cos(rad)*this.acceleration;
+                this.velY-=Math.sin(rad)*this.acceleration;
+
+                if (this.aiStuckStateTimer <= 0) { 
+                    this.aiStuckState = 'turn_ball'; 
+                    this.aiStuckStateTimer = 0.4; 
+                }
+            } else if (this.aiStuckState === 'turn_ball') {
+                // 3. Turn back at ball
+                let targetBall = foreverBalls[0];
+                const dx=targetBall.x-this.x, dy=targetBall.y-this.y;
+                const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
+                let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
+                if(angleDiff>this.rotationSpeed){this.angle=(this.angle+this.rotationSpeed)%360;}
+                else if(angleDiff<-this.rotationSpeed){this.angle=(this.angle-this.rotationSpeed)%360;}
+                
+                if (this.aiStuckStateTimer <= 0) { 
+                    this.aiStuckState = 'hit_ball'; 
+                    this.aiStuckStateTimer = 0.4; 
+                }
+            } else if (this.aiStuckState === 'hit_ball') {
+                // 4. Hit ball (move forward)
+                this.throttleDirection = 1;
+                let rad=Math.PI*this.angle/180;
+                this.velX+=Math.cos(rad)*this.acceleration;
+                this.velY-=Math.sin(rad)*this.acceleration;
+                
+                if (this.aiStuckStateTimer <= 0) { 
+                    this.aiStuckState = 'reversing_small'; 
+                    this.aiStuckStateTimer = 0.3; 
+                }
+            } else if (this.aiStuckState === 'reversing_small') {
+                // 5. Move back a little bit
+                this.throttleDirection = -1;
+                let rad=Math.PI*this.angle/180;
+                this.velX-=Math.cos(rad)*this.acceleration;
+                this.velY+=Math.sin(rad)*this.acceleration;
+                
+                if (this.aiStuckStateTimer <= 0) {
+                    this.aiStuckState = 'none';
+                    this.stuckInCornerTimer = 0;
+                }
+            }
+            return;
+        }
+        
+        // 2. STUCK DETECTION
+        let thresh = this.stuckThresholdDist; // Randomized per car
+        if ((this.x < thresh || this.x > canvas.width - thresh || this.y < thresh || this.y > canvas.height - thresh) && this.speed < 2.0) {
+             this.stuckInCornerTimer += deltaTime;
+             if (this.stuckInCornerTimer > 1.5) { 
+                 this.aiStuckState = 'reversing';
+                 this.aiStuckStateTimer = 0.4;
+                 return;
+             }
+        } else {
+            this.stuckInCornerTimer = 0;
+        }
        
-        // Friendly Collision Avoidance
+        // Standard AI Logic
         cars.forEach(otherCar => {
             if (otherCar === this || !otherCar.ai || otherCar.isFriendlyAI !== this.isFriendlyAI) return;
             let dxAI = this.x - otherCar.x;
@@ -551,8 +758,6 @@ class Car {
             if (dist < minBallDist) { minBallDist = dist; targetBall = b; }
         });
        
-        // --- IMPROVED COORDINATION LOGIC ---
-        // Identify closest teammate to ball
         let teammates = cars.filter(c => c.ai && c.team_side === this.team_side);
         teammates.sort((a, b) => Math.hypot(a.x-targetBall.x, a.y-targetBall.y) - Math.hypot(b.x-targetBall.x, b.y-targetBall.y));
         let closestTeammate = teammates[0];
@@ -561,39 +766,30 @@ class Car {
         let targetX, targetY;
 
         if (amIClosest) {
-             // Go for ball if closest
              targetX = targetBall.x; targetY = targetBall.y;
         } else {
-            // Instructor Logic: Stay in position based on role
             if (this.role === 'attacker') {
-                // Wait for rebound/center
                 targetX = canvas.width / 2; 
                 targetY = targetBall.y > canvas.height/2 ? canvas.height * 0.3 : canvas.height * 0.7;
             } else if (this.role === 'mid') {
-                // Stay between ball and own goal
                 let myGoalX = this.team_side === 'right' ? canvas.width : 0;
                 targetX = (targetBall.x + myGoalX) / 2;
                 targetY = (targetBall.y + canvas.height/2) / 2;
             } else {
-                 // Defender/Goalie logic handled in switch
                  targetX = targetBall.x; targetY = targetBall.y;
             }
         }
 
-        // Override for Def/Goalie specific positioning if they are the role
         switch(this.role){
             case "defender":
                 let gLineX = this.isFriendlyAI ? BALL_RADIUS*3 : canvas.width - BALL_RADIUS*3;
                 if (!amIClosest) {
-                    // Hold line
                     targetX = gLineX;
                     targetY = Math.max(canvas.height/2-GOAL_HEIGHT/2+BALL_RADIUS, Math.min(targetBall.y,canvas.height/2+GOAL_HEIGHT/2-BALL_RADIUS));
                 } else {
-                    // Challenge if closest
                     if (Math.abs(targetBall.x - gLineX) < 400) {
                          targetX = targetBall.x; targetY = targetBall.y;
                     } else {
-                         // Still hold if ball is far
                          targetX = gLineX;
                          targetY = Math.max(canvas.height/2-GOAL_HEIGHT/2+BALL_RADIUS, Math.min(targetBall.y,canvas.height/2+GOAL_HEIGHT/2-BALL_RADIUS));
                     }
@@ -606,22 +802,32 @@ class Car {
                 if (amIClosest) { targetX = targetBall.x; targetY = targetBall.y; }
                 break;
         }
-
-        // Corner Unstuck hack
-        if (this.x < 60 || this.x > canvas.width - 60 || this.y < 60 || this.y > canvas.height - 60) {
-             this.stuckInCornerTimer += deltaTime;
-             if (this.stuckInCornerTimer > 1.5) { // Reduced time to 1.5s
-                 // Move towards center
-                 targetX = canvas.width / 2; targetY = canvas.height / 2;
-                 // Wiggle away from walls
-                 if (this.y < 60 || this.y > canvas.height - 60) targetX += (Math.random() > 0.5 ? 200 : -200);
-             }
-        } else {
-            this.stuckInCornerTimer = 0;
+        
+        // 3. FRIENDLY CONSTRAINTS (Apply to targetX)
+        if (this.isFriendlyAI) {
+            if (this.role === 'attacker') {
+                // Stay in right half (enemy side) - x > width/2
+                // Allow slight crossing for ball chase
+                targetX = Math.max(canvas.width/2 + 20, targetX); 
+            } else if (this.role === 'defender') {
+                // Stay in left half (home side) - x < width/2
+                targetX = Math.min(canvas.width/2 - 20, targetX);
+            }
         }
-       
+
+        // Prediction Logic (Smarter from Lvl 50-100)
+        if (playerLevel > 50 && (this.role === 'attacker' || (this.role === 'mid' && amIClosest))) {
+            let smartFactor = Math.min(1.0, (playerLevel - 50) / 50.0); // 0 at 50, 1 at 100
+            // Predict ball position based on current velocity
+            let leadTime = 0.5 * smartFactor; // lead up to 0.5s ahead
+            targetX += targetBall.velX * leadTime;
+            targetY += targetBall.velY * leadTime;
+        }
+
         const dx=targetX-this.x,dy=targetY-this.y;
-        const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
+        const targetAngleRad=Math.atan2(-dy,dx); 
+        let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
+        
         let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
         const dist = Math.hypot(dx,dy);
        
@@ -642,13 +848,10 @@ class Car {
             }
         }
        
-        // AI Boosting Logic
-        const AI_BOOST_LEVEL_UNLOCK = 6; // Number of AIs needed to unlock boosting
+        const AI_BOOST_LEVEL_UNLOCK = 6; 
         let canBoost = false;
-        
         if (getNumberOfAICars() >= AI_BOOST_LEVEL_UNLOCK || aiDifficulty > 5) {
             if (Math.abs(angleDiff) < 10 && dist > 150 && this.boost > 20) canBoost = true;
-            // Goalie boosts if ball is far and needs to return to net
             if (this.role === 'defender' && dist > 300) canBoost = true;
         }
         this.boosting = canBoost;
@@ -674,17 +877,19 @@ class Car {
         let rad=Math.PI*this.angle/180;
         let fVel=this.velX*Math.cos(rad)-this.velY*Math.sin(rad);
         let sVel=this.velX*Math.sin(rad)+this.velY*Math.cos(rad);
-        sVel*=(1-this.sideFrictionFactor); fVel*=0.96; // Drag
+        
+        let driftReduc = this.sideFrictionFactor;
+        sVel*=(1-driftReduc); 
+        fVel*=0.96; 
        
         if(this.boosting && this.boost>0 && this.throttleDirection!==0) {
             let boostForce=this.acceleration*this.boostPower*1.5;
             fVel+=boostForce*this.throttleDirection;
-            if(!playerUpgrades.platinumOmniBoost && !this.effects.invincible) 
+            if(!playerUpgrades.platinumOmniBoost && !playerUpgrades.platinumOmniBoost_evo && !this.effects.invincible) 
                 this.boost -= this.boostUsage * deltaTime * PHYSICS_TICK_RATE;
             if(this.boost<0){this.boost=0;this.boosting=false;}
         }
-        if (playerUpgrades.boostEfficiency && !this.ai) {
-             // Refund a bit if efficient
+        if ((playerUpgrades.boostEfficiency || playerUpgrades.boostEfficiency_evo) && !this.ai) {
              if (this.boosting) this.boost += 0.15 * deltaTime * PHYSICS_TICK_RATE;
         }
        
@@ -710,7 +915,6 @@ class Car {
         if (this.y < marginH) { this.y = marginH; this.velY *= -0.5; }
         if (this.y > canvas.height - marginH) { this.y = canvas.height - marginH; this.velY *= -0.5; }
         
-        // Passive Repel Field
         if (!this.ai && playerUpgrades.repelField) {
             cars.forEach(c => {
                if (c.ai && !c.isFriendlyAI) {
@@ -785,6 +989,7 @@ class Car {
         this.velX=0; this.velY=0; this.speed=0; this.boost=this.maxBoost;
         this.isStunned=false; this.stunDuration=0; this.effects={};
         this.stuckInCornerTimer = 0;
+        this.aiStuckState = 'none';
     }
 }
 
@@ -797,13 +1002,14 @@ class Ball {
    
     move(deltaTime) {
         // Passive Ball Magnet
-        if (playerUpgrades.ballMagnet) {
+        if (playerUpgrades.ballMagnet || playerUpgrades.ballMagnet_evo) {
              let p = cars[0];
              if (p && !p.ai) {
                  let d = Math.hypot(p.x-this.x, p.y-this.y);
                  if (d < 200) {
-                     this.velX += (p.x - this.x) * 0.002;
-                     this.velY += (p.y - this.y) * 0.002;
+                     let pullStr = playerUpgrades.ballMagnet_evo ? 0.005 : 0.002;
+                     this.velX += (p.x - this.x) * pullStr;
+                     this.velY += (p.y - this.y) * pullStr;
                  }
              }
         }
@@ -827,7 +1033,7 @@ class Ball {
         else if (this.y > canvas.height - bMargin) { this.y = canvas.height - bMargin; this.velY *= -0.8; }
        
         // Sticky Net Logic
-        if(playerUpgrades.platinumStickyNet) {
+        if(playerUpgrades.platinumStickyNet || playerUpgrades.platinumStickyNet_evo) {
             let aiGoalTop=canvas.height/2-GOAL_HEIGHT/2, aiGoalBottom=canvas.height/2+GOAL_HEIGHT/2;
             if(this.y>aiGoalTop && this.y<aiGoalBottom && this.x > canvas.width - (BALL_RADIUS*3)) {
                 this.velX *= 0.5; // Stronger stick
@@ -892,7 +1098,8 @@ class BoostPad {
     consume(car) {
         if (!this.active) return;
         this.active = false; this.cooldownTimer = 3.0;
-        let refill = 25 + (playerUpgrades.boostRegen || 0);
+        // Check for evo boost regen
+        let refill = 25 + (playerUpgrades.boostRegen ? 8 : 0) + (playerUpgrades.boostRegen_evo ? 15 : 0);
         car.refillBoost(refill);
     }
 }
@@ -971,7 +1178,7 @@ function setupGameObjects(mode,initialAICount=1){
     canvas.width = DEFAULT_WIDTH; canvas.height = DEFAULT_HEIGHT;
     let center_x=canvas.width/2, center_y=canvas.height/2;
     foreverBalls = [];
-    let count = playerUpgrades.platinumDoubleAll ? 3 : 1;
+    let count = (playerUpgrades.platinumDoubleAll || playerUpgrades.platinumDoubleAll_evo) ? 3 : 1;
     for(let i=0;i<count;i++) {
         let b=new Ball(center_x, center_y, BALL_RADIUS); b.reset(); foreverBalls.push(b);
     }
@@ -1057,6 +1264,10 @@ function updateUI(){
         foreverStatusPanel.classList.add('hidden');
     } 
     else if (endConditionType === 'forever'){
+        // FORCE LARGE FONT FOR FOREVER MODE
+        sLeft.classList.add('score-large'); sLeft.classList.remove('score-normal');
+        sRight.classList.add('score-large'); sRight.classList.remove('score-normal');
+
         document.getElementById('center-info').style.visibility = 'visible';
         document.getElementById('timer').textContent=`${playerLevel}`;
         document.getElementById('mode-info').textContent=`PLAYER LEVEL`;
@@ -1076,7 +1287,8 @@ function updateUpgradesDisplay() {
     display.innerHTML = '';
     playerAbilities.forEach(ability => {
         const count = playerUpgrades[ability.id] || 0;
-        const countDisplay = count > 1 ? ` (x${count})` : '';
+        // For Evos, always 1 count
+        const countDisplay = (!ability.tier.includes('evo') && count > 1) ? ` (x${count})` : '';
         const item = document.createElement('div');
         item.className = `px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm ability-level-${ability.tier} upgrade-icon-container`;
         item.innerHTML = `
@@ -1090,7 +1302,7 @@ function updateUpgradesDisplay() {
 function drawField(){
     ctx.fillStyle=COLOR_FIELD; ctx.fillRect(0,0,canvas.width,canvas.height);
     let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
-    let aiGoalHeight = playerUpgrades.goalExpansion ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
+    let aiGoalHeight = (playerUpgrades.goalExpansion || playerUpgrades.goalExpansion_evo) ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
     let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2;
     let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2;
 
@@ -1119,8 +1331,9 @@ function checkCarBallCollision(car, ball){
         let force=baseForce+carSpeed*1.5*(car.boosting?car.boostPower:1);
         
         if (!car.ai) {
-            force *= (1 + (playerUpgrades.kick || 0)*0.1);
+            force *= (1 + (playerUpgrades.kick ? 0.1 : 0) + (playerUpgrades.kick_evo ? 0.25 : 0));
             if (playerUpgrades.doubleKick) force *= 2;
+            if (playerUpgrades.doubleKick_evo) force *= 3;
         }
         
         // Physics: Heavy cars push ball harder, light cars pushed back more
@@ -1130,7 +1343,7 @@ function checkCarBallCollision(car, ball){
         
         // Car Recoil
         let recoil = 1.0 / car.mass;
-        if (!car.ai && playerUpgrades.stickTires) recoil *= 0.5;
+        if (!car.ai && (playerUpgrades.stickTires || playerUpgrades.stickTires_evo)) recoil *= 0.0; // EVO is zero
         car.velX -= Math.cos(impulseAngle) * force * 0.5 * recoil;
         car.velY -= Math.sin(impulseAngle) * force * 0.5 * recoil;
 
@@ -1138,9 +1351,10 @@ function checkCarBallCollision(car, ball){
         if(overlap>0){ ball.x+=Math.cos(impulseAngle)*overlap; ball.y+=Math.sin(impulseAngle)*overlap; }
        
         if (!car.ai) {
-             if (playerUpgrades.superStun) {
+             if (playerUpgrades.superStun || playerUpgrades.superStun_evo) {
+                 let dur = playerUpgrades.superStun_evo ? 3.0 : 1.5;
                  cars.filter(c=>c.ai&&!c.isFriendlyAI).forEach(c => {
-                     if(Math.hypot(c.x-ball.x, c.y-ball.y) < 150) { c.isStunned=true; c.stunDuration=1.5; }
+                     if(Math.hypot(c.x-ball.x, c.y-ball.y) < 150) { c.isStunned=true; c.stunDuration=dur; }
                  });
              }
              if (playerUpgrades.freezeTag) {
@@ -1163,7 +1377,7 @@ function checkCarCarCollision(car1, car2) {
     if (dist < collisionDistance) {
         let angle = Math.atan2(dy, dx);
         let overlap = collisionDistance - dist;
-        let sepX = Math.cos(angle)*(overlap/2), sepY = Math.sin(angle)*(overlap/2);
+        let sepX = Math.cos(angle)*(overlap/2 + 0.5), sepY = Math.sin(angle)*(overlap/2 + 0.5); // Added 0.5 buffer
         car1.x-=sepX; car1.y-=sepY; car2.x+=sepX; car2.y+=sepY;
        
         let v1 = car1.velX*Math.cos(angle) + car1.velY*Math.sin(angle);
@@ -1185,7 +1399,7 @@ function checkCarCarCollision(car1, car2) {
 
 function checkGoal(ball) {
     let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
-    let aiGoalHeight = playerUpgrades.goalExpansion ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
+    let aiGoalHeight = (playerUpgrades.goalExpansion || playerUpgrades.goalExpansion_evo) ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
     if(ball.y>canvas.height/2-goalHeight/2 && ball.y<canvas.height/2+goalHeight/2 && ball.x-ball.radius<=0) return 'right'; 
     if(ball.y>canvas.height/2-aiGoalHeight/2 && ball.y<canvas.height/2+aiGoalHeight/2 && ball.x+ball.radius>=canvas.width) {
          if(cars[0].effects.goalBlock) return null;
@@ -1220,8 +1434,8 @@ function handleGoal(scoringTeam, scoredBall) {
         // Effects
         cars[0].effects.goalBlock = { duration: 3.0 };
         cars.filter(c => c.ai && !c.isFriendlyAI).forEach(ai => {
-            if (playerUpgrades.aiSlow) ai.effects.slow = { duration: 5.0, factor: 0.5 };
-            if (playerUpgrades.timeFreeze) { ai.isStunned = true; ai.stunDuration = 2.0; }
+            if (playerUpgrades.aiSlow || playerUpgrades.aiSlow_evo) ai.effects.slow = { duration: 5.0, factor: (playerUpgrades.aiSlow_evo?0.2:0.5) };
+            if (playerUpgrades.timeFreeze || playerUpgrades.timeFreeze_evo) { ai.isStunned = true; ai.stunDuration = (playerUpgrades.timeFreeze_evo?4.0:2.0); }
             if (playerUpgrades.platinumSuperAI) ai.effects.confused = { duration: 8.0 };
         });
        
