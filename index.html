@@ -1577,9 +1577,7 @@ function drawMainMenu() {
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 transition duration-150" data-action="select-mode-2v2">2v2 Multiplayer (Local)</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 transition duration-150" data-action="select-mode-vs-computer">Vs Computer</div>
                
-                <a href="https://ccpspy.github.io/onlinecargame" target="_blank" rel="noopener noreferrer" class="block p-3 bg-gray-600 rounded-lg hover:bg-gray-500 transition duration-150" title="Opens in new tab">
-                    Play Online
-                </a>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 transition duration-150" data-action="play-online">Play Online</div>
             </div>
         </div>
     `;
@@ -1781,7 +1779,7 @@ function handleMenuSelection(index) {
     else if (selection === 'start-points-10') { targetScore = 10; startGame(mode, 'points'); }
    
     else if (selection === 'play-online') {
-        console.log("Online mode not implemented.");
+        window.location.href = "https://ccpspy.github.io/onlinecargame";
     }
    
     else if (selection === 'restart') {
