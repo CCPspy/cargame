@@ -71,14 +71,14 @@
         
         #overlay.visible { opacity: 1; pointer-events: auto; }
 
-        #ui-panel, #forever-status-panel { flex-shrink: 0; width: 100%; max-width: 1000px; }
+        #ui-panel, #forever-status-panel, #forever-hud { flex-shrink: 0; width: 100%; max-width: 1000px; }
 
         .menu-selected {
             border: 3px solid #fcd34d;
             box-shadow: 0 0 15px rgba(252, 211, 77, 0.6);
             transform: scale(1.02);
         }
-        #menu-options > div, #upgrade-options > div {
+        #menu-options > div, #upgrade-options > div, .clickable-option {
              cursor: pointer; transition: all 0.2s;
         }
         .upgrade-icon-container { position: relative; cursor: default; }
@@ -93,12 +93,12 @@
         .upgrade-icon-container:hover .upgrade-tooltip { visibility: visible; opacity: 1; }
         
         /* Base Tiers */
-        .ability-level-bronze { background: #78350f; color: #fed7aa; border: 1px solid #92400e; }
+        .ability-level-bronze { background: #451a03; color: #fed7aa; border: 1px solid #92400e; }
         .ability-level-silver { background: #374151; color: #e5e7eb; border: 1px solid #6b7280; }
         .ability-level-gold { background: #854d0e; color: #fef08a; border: 1px solid #eab308; }
         .ability-level-platinum { background: #1e1b4b; color: #c7d2fe; border: 1px solid #818cf8; box-shadow: 0 0 10px #6366f1; }
 
-        /* Evolved Tiers - Similar but fancier */
+        /* Evolved Tiers */
         .ability-level-bronze-evo { background: #451a03; color: #ffedd5; border: 2px solid #f97316; box-shadow: 0 0 8px #ea580c; }
         .ability-level-silver-evo { background: #1f2937; color: #f3f4f6; border: 2px solid #9ca3af; box-shadow: 0 0 8px #d1d5db; }
         .ability-level-gold-evo { background: #422006; color: #fef9c3; border: 2px solid #facc15; box-shadow: 0 0 12px #eab308; }
@@ -125,12 +125,14 @@
 
 <div id="game-container" class="p-4 sm:p-6 lg:p-8">
     <div id="top-bar" class="w-full mb-2 flex justify-end space-x-2 shrink-0 max-w-[1000px]">
-        <button id="fullscreen-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
-            <span class="mr-2">📺</span> Fullscreen
-        </button>
-        <button id="pause-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
-            <span class="mr-2">⏸️</span> Pause (P)
-        </button>
+        <div class="flex space-x-2">
+            <button id="fullscreen-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
+                <span class="mr-2">📺</span> Fullscreen
+            </button>
+            <button id="pause-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-200 shadow-md flex items-center hidden">
+                <span class="mr-2">⏸️</span> Pause (P)
+            </button>
+        </div>
     </div>
 
     <div id="game-viewport">
@@ -139,6 +141,42 @@
             <div id="overlay"></div>
             <div id="notifications"></div>
         </div>
+    </div>
+
+    <!-- Relocated HUD for Forever Mode -->
+    <div id="forever-hud" class="hidden mt-2 p-4 bg-gray-800 rounded-lg border border-cyan-500/30 shadow-lg grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <!-- Large Speed Display -->
+        <div class="text-center md:text-left border-b md:border-b-0 md:border-r border-gray-700 pb-2 md:pb-0 md:pr-4">
+            <div class="text-gray-400 text-xs font-bold tracking-widest uppercase mb-1">Current Speed</div>
+            <div class="font-black text-6xl text-cyan-400 italic" style="text-shadow: 0 0 20px rgba(34, 211, 238, 0.3);"><span id="hud-speed">0</span> <span class="text-xl not-italic text-gray-500 font-medium">km/h</span></div>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="col-span-1 md:col-span-2 grid grid-cols-4 gap-3 text-center">
+             <!-- Boost -->
+             <div class="bg-gray-700/50 rounded-lg p-2 border border-gray-600">
+                <div class="text-[10px] text-yellow-400 font-bold tracking-wider mb-1">FUEL</div>
+                <div class="font-mono text-white font-bold text-lg" id="hud-boost-cap">100</div>
+             </div>
+             <!-- Mass -->
+             <div class="bg-gray-700/50 rounded-lg p-2 border border-gray-600">
+                <div class="text-[10px] text-green-400 font-bold tracking-wider mb-1">MASS</div>
+                <div class="font-mono text-white font-bold text-lg" id="hud-mass">1.0x</div>
+             </div>
+             <!-- Accel -->
+             <div class="bg-gray-700/50 rounded-lg p-2 border border-gray-600">
+                <div class="text-[10px] text-red-400 font-bold tracking-wider mb-1">POWER</div>
+                <div class="font-mono text-white font-bold text-lg" id="hud-accel">100%</div>
+             </div>
+             <!-- Grip/Handling -->
+             <div class="bg-gray-700/50 rounded-lg p-2 border border-gray-600">
+                <div class="text-[10px] text-purple-400 font-bold tracking-wider mb-1">GRIP</div>
+                <div class="font-mono text-white font-bold text-lg" id="hud-grip">50</div>
+             </div>
+        </div>
+        
+        <!-- Active Effects Row (Full Width) -->
+        <div class="col-span-1 md:col-span-3 flex flex-wrap justify-center md:justify-start gap-2 text-xs font-bold empty:hidden" id="hud-effects"></div>
     </div>
 
     <div id="ui-panel" class="mt-2 p-4 bg-gray-700 rounded-lg shadow-lg hidden">
@@ -186,6 +224,19 @@ const COLOR_RED = '#cc0000';
 const COLOR_CYAN = '#00fff4';
 const COLOR_FIELD = '#2b2f3d';
 
+// --- Settings & Defaults ---
+const defaultKeybinds = [
+    { id: 1, up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', boost:'ShiftLeft' },
+    { id: 2, up:'ArrowUp', down:'ArrowDown', left:'ArrowLeft', right:'ArrowRight', boost:'ShiftRight' },
+    { id: 3, up:'KeyT', down:'KeyG', left:'KeyF', right:'KeyH', boost:'Space' },
+    { id: 4, up:'KeyI', down:'KeyK', left:'KeyJ', right:'KeyL', boost:'ControlRight' }
+];
+
+let playerSettings = {
+    keybinds: JSON.parse(JSON.stringify(defaultKeybinds)),
+    sensitivity: 1.0
+};
+
 // --- Game State ---
 let gameState = 'menu';
 let gameMode = '1v1 Multiplayer';
@@ -193,6 +244,7 @@ let endConditionType = 'timed';
 let timeLimitSeconds = 120;
 let targetScore = 5;
 let gameTimer = 0;
+let roundTime = 0; // For Virus Upload logic
 let scoreLeft = 0, scoreRight = 0;
 let cars = [];
 let boostPads = [];
@@ -209,34 +261,37 @@ let playerLevel = 0;
 let upgradeRerollsUsed = 0, extraUpgradePicks = 0, upgradeOptions = [];
 let pendingUpgradePick = false;
 let stuckBallMessage = { text: '', duration: 0 };
+// Tier percentages for display
+let currentTierChances = { bronze:0, silver:0, gold:0, platinum:0 };
+
+// --- Saved Session ---
+let savedForeverSession = null;
 
 // --- Global declarations for menu state ---
 let selectedMenuIndex = 0;
 let selectedUpgradeIndex = 0;
 let menuOptions = []; 
 const fullscreenBtn = document.getElementById('fullscreen-btn');
+const pauseBtn = document.getElementById('pause-btn');
 
-// --- EXPANDED ABILITY POOLS WITH EVOLUTIONS ---
-
-// Helper to create evolution definitions
-// Evolution format: { id, label, icon, desc, tier: 'bronze-evo', isEvo: true, baseId: 'originalId' }
+// --- EXPANDED ABILITY POOLS ---
 
 const BRONZE_UPGRADES = [
-    {id:'accel',label:'Engine Chip',icon:'⚡',desc:'Acceleration +10%.',tier:'bronze'},
+    {id:'accel',label:'Engine Chip',icon:'⚡',desc:'Acceleration +15%.',tier:'bronze'},
     {id:'turn',label:'Power Steering',icon:'🌀',desc:'Rotation speed +15%.',tier:'bronze'},
     {id:'maxBoost',label:'Extra Fuel',icon:'⛽',desc:'Boost capacity +20.',tier:'bronze'},
     {id:'boostRegen',label:'Hybrid Engine',icon:'🔋',desc:'Pad refill +8.',tier:'bronze'},
     {id:'frictionFix',label:'Grip Tires',icon:'🦶',desc:'Reduces drift by 15%.',tier:'bronze'},
     {id:'speed',label:'Top Gear',icon:'🚀',desc:'Top speed +5%.',tier:'bronze'},
     {id:'brake',label:'Ceramic Brakes',icon:'🅿️',desc:'Braking force +50%.',tier:'bronze'},
-    {id:'kick',label:'Steel Bumper',icon:'🦵',desc:'Ball hit knockback +10%.',tier:'bronze'},
+    {id:'kick',label:'Steel Bumper',icon:'🦵',desc:'Ball hit knockback +25%.',tier:'bronze'},
     {id:'stickTires',label:'Sticky Tires',icon:'🧲',desc:'Reduces your recoil when hitting ball.',tier:'bronze'},
     {id:'extraBoostPad',label:'Field Supply',icon:'✨',desc:'Bonus boost pad on field.',tier:'bronze', permanent:true},
     {id:'bigCar',label:'Heavy Frame',icon:'🚚',desc:'Size +10%, Mass +10%.',tier:'bronze'},
     {id:'slipStream',label:'Drafting',icon:'💨',desc:'Gain boost when near AI.',tier:'bronze'},
-    {id:'reverseKing',label:'Reverse King',icon:'🔙',desc:'Drive backwards 30% faster.',tier:'bronze'},
+    {id:'reverseKing',label:'Reverse King',icon:'🔙',desc:'Drive backwards 50% faster.',tier:'bronze'},
     {id:'heavyDuty',label:'Tank Tread',icon:'🛡️',desc:'Mass +25%, harder to push.',tier:'bronze'},
-    {id:'aerodynamics',label:'Aero Kit',icon:'🍃',desc:'Air resistance reduced.',tier:'bronze'},
+    {id:'aerodynamics',label:'Aero Kit',icon:'🍃',desc:'Increased max speed.',tier:'bronze'},
     {id:'boostEfficiency',label:'Eco Boost',icon:'♻️',desc:'Boost burns 15% slower.',tier:'bronze'},
     {id:'wideBody',label:'Wide Body',icon:'↔️',desc:'Car becomes wider.',tier:'bronze'},
     {id:'longBody',label:'Limo Build',icon:'↕️',desc:'Car becomes longer.',tier:'bronze'},
@@ -270,17 +325,14 @@ const GOLD_UPGRADES = [
 ];
 
 const PLATINUM_UPGRADES = [
-    {id:'platinumDoubleAll',label:'Chaos Mode',icon:'🌈',desc:'3 Balls. 3x Points potential.',tier:'platinum', permanent:true},
-    {id:'platinumSuperAI',label:'Virus Upload',icon:'👾',desc:'AI confuses directions for 8s after score.',tier:'platinum'},
-    {id:'platinumStickyNet',label:'Sticky Web',icon:'🕸️',desc:'Enemy goal traps ball velocity.',tier:'platinum'},
+    {id:'platinumDoubleAll',label:'Chaos Mode',icon:'🌈',desc:'3 Balls. Bonus balls spawn closer to enemy!',tier:'platinum', permanent:true},
+    {id:'platinumSuperAI',label:'Virus Upload',icon:'👾',desc:'AI confused for first 5s of every round.',tier:'platinum'},
+    {id:'platinumStickyNet',label:'Black Hole',icon:'🕳️',desc:'Enemy goal sucks ball in if close.',tier:'platinum'},
     {id:'platinumOmniBoost',label:'Infinite Fuel',icon:'🔥',desc:'Boost never runs out.',tier:'platinum'},
-    {id:'platinumTeleport',label:'Blink Drive',icon:'✨',desc:'Teleport to ball (Press T, 5s CD).',tier:'platinum'},
+    {id:'platinumTeleport',label:'Smart Blink',icon:'✨',desc:'Teleport behind ball (Press T, 3s CD).',tier:'platinum'},
 ];
 
-// EVOLUTIONS MAPPING
-// Simplified evolution logic: For most, it just doubles effectiveness or adds a perk.
 const EVOLUTIONS = {
-    // Bronze Evos
     'accel': {id:'accel_evo', label:'Hyper Engine', icon:'⚡⚡', desc:'Acceleration +25%.', tier:'bronze-evo'},
     'turn': {id:'turn_evo', label:'Gyro Steering', icon:'🌀✨', desc:'Rotation speed +30%.', tier:'bronze-evo'},
     'maxBoost': {id:'maxBoost_evo', label:'Nuclear Tank', icon:'⛽☢️', desc:'Boost capacity +50.', tier:'bronze-evo'},
@@ -293,27 +345,19 @@ const EVOLUTIONS = {
     'stickTires': {id:'stickTires_evo', label:'Glue Tires', icon:'🧲🧴', desc:'Zero recoil.', tier:'bronze-evo'},
     'slipStream': {id:'slipStream_evo', label:'Jetstream', icon:'💨✈️', desc:'Gain massive boost near AI.', tier:'bronze-evo'},
     
-    // Silver Evos
     'miniRobot': {id:'miniRobot_evo', label:'Elite Drone', icon:'🤖👑', desc:'Spawns a smarter, faster attacker.', tier:'silver-evo'},
     'goalExpansion': {id:'goalExpansion_evo', label:'Giant Net', icon:'🥅🏟️', desc:'AI goal is 60% wider.', tier:'silver-evo'},
     'doubleKick': {id:'doubleKick_evo', label:'One Punch', icon:'🥊💥', desc:'Triples ball impact force.', tier:'silver-evo'},
     'ballMagnet': {id:'ballMagnet_evo', label:'Tractor Beam', icon:'🧲🛸', desc:'Ball follows you for longer.', tier:'silver-evo'},
     'shrinkEnemies': {id:'shrinkEnemies_evo', label:'Micro Ray', icon:'🔬🧬', desc:'Enemies become 50% size.', tier:'silver-evo'},
     
-    // Gold Evos
     'superStun': {id:'superStun_evo', label:'Zeus Strike', icon:'💫⚡', desc:'Stun duration doubled.', tier:'gold-evo'},
     'aiSlow': {id:'aiSlow_evo', label:'System Crash', icon:'🐢💻', desc:'AI speed -80% after score.', tier:'gold-evo'},
     'timeFreeze': {id:'timeFreeze_evo', label:'Time Lock', icon:'⏱️🔒', desc:'Freeze AI for 4s.', tier:'gold-evo'},
     
-    // Plat Evos
     'platinumOmniBoost': {id:'platinumOmniBoost_evo', label:'Cosmic Fuel', icon:'🔥🌌', desc:'Infinite Boost + 20% Speed.', tier:'platinum-evo'},
     'platinumTeleport': {id:'platinumTeleport_evo', label:'Warp Drive', icon:'✨🚪', desc:'Teleport cooldown 1s.', tier:'platinum-evo'}
 };
-
-// Helper to get pool
-function getEvolutionPool(baseTier) {
-    return Object.values(EVOLUTIONS).filter(e => e.tier.startsWith(baseTier));
-}
 
 const ALL_UPGRADES = [...BRONZE_UPGRADES, ...SILVER_UPGRADES, ...GOLD_UPGRADES, ...PLATINUM_UPGRADES];
 
@@ -322,7 +366,7 @@ function showNotification(text, isEvolution = false) {
     const n = document.createElement('div');
     n.className = 'notification-toast';
     if(isEvolution) {
-        n.style.borderColor = '#a855f7'; // Purple for evo
+        n.style.borderColor = '#a855f7';
         n.style.boxShadow = '0 0 20px #a855f7';
         n.innerHTML = `<span class="text-2xl">🧬</span><br>${text}`;
     } else {
@@ -332,23 +376,40 @@ function showNotification(text, isEvolution = false) {
     setTimeout(() => n.remove(), 3000);
 }
 
-function getAbilityTierByLevel(level) {
-    // Level 1-19: Bronze
-    if (level < 20) return "bronze"; 
-    // Level 20-49: Silver
-    if (level < 50) return Math.random() < 0.7 ? "silver" : "bronze";
-    // Level 50-99: Gold
-    if (level < 100) {
-        const r = Math.random();
-        if (r < 0.6) return "gold";
-        if (r < 0.9) return "silver";
-        return "bronze";
-    }
-    // Level 100+: Platinum
-    const r = Math.random();
-    if (r < 0.3) return "platinum";
-    if (r < 0.7) return "gold";
-    return "silver";
+function saveForeverProgress() {
+    savedForeverSession = {
+        playerLevel,
+        scoreLeft,
+        scoreRight,
+        aiDifficulty,
+        playerUpgrades: JSON.parse(JSON.stringify(playerUpgrades)),
+        playerAbilities: JSON.parse(JSON.stringify(playerAbilities)),
+        extraUpgradePicks
+    };
+    gameState = 'menu';
+    drawMainMenu();
+}
+
+// New Weighted Logic
+function calculateTierChances(level) {
+    let t = Math.min(level, 50) / 50.0;
+    const b = 90 - (65 * t); // Starts 90, drops to 25
+    const s = 7 + (43 * t);  // Starts 7, rises to 50
+    const g = 2 + (18 * t);  // Starts 2, rises to 20
+    const p = 1 + (4 * t);   // Starts 1, rises to 5
+    return { bronze: b, silver: s, gold: g, platinum: p };
+}
+
+function getAbilityTierByWeightedChance(level) {
+    const chances = calculateTierChances(level);
+    currentTierChances = chances; // store for UI
+    let r = Math.random() * 100;
+    if (r < chances.bronze) return "bronze";
+    r -= chances.bronze;
+    if (r < chances.silver) return "silver";
+    r -= chances.silver;
+    if (r < chances.gold) return "gold";
+    return "platinum";
 }
 
 function getPoolForTier(tier) {
@@ -356,17 +417,15 @@ function getPoolForTier(tier) {
     if (tier === "silver") return SILVER_UPGRADES;
     if (tier === "gold") return GOLD_UPGRADES;
     if (tier === "platinum") return PLATINUM_UPGRADES;
-    // Evo tiers
     if (tier.includes('evo')) return Object.values(EVOLUTIONS).filter(e => e.tier === tier);
     return BRONZE_UPGRADES;
 }
 
 function randomAbilities(amt, disallowIds=[]) {
     let chosen = [];
+    currentTierChances = calculateTierChances(playerLevel); 
     for (let i = 0; i < amt; i++) {
-        let tier = getAbilityTierByLevel(playerLevel);
-        
-        // Evolution Direct Drop Chance
+        let tier = getAbilityTierByWeightedChance(playerLevel);
         let evoChance = Math.random();
         let attemptEvo = false;
         let evoTier = null;
@@ -379,21 +438,15 @@ function randomAbilities(amt, disallowIds=[]) {
         let pool;
         if (attemptEvo) {
             pool = getPoolForTier(evoTier);
-            // Filter if already owned max
             pool = pool.filter(u => !playerUpgrades[u.id]); 
         } 
-        
         if (!pool || pool.length === 0) {
             pool = getPoolForTier(tier);
             pool = pool.filter(u => !u.permanent || !playerUpgrades[u.id]);
         }
-       
-        if (pool.length === 0) pool = BRONZE_UPGRADES; // Fallback
-       
+        if (pool.length === 0) pool = BRONZE_UPGRADES;
         const pick = pool[Math.floor(Math.random() * pool.length)];
-        if (pick) {
-            chosen.push(pick);
-        }
+        if (pick) chosen.push(pick);
     }
     return chosen;
 }
@@ -402,8 +455,8 @@ function requestUpgradePicker() {
     gameState = 'upgrading';
     upgradeRerollsUsed = 0;
     rerollUpgradeOptions(); 
-    document.getElementById('pause-btn').classList.add('hidden');
-    document.getElementById('fullscreen-btn').classList.add('hidden');
+    pauseBtn.classList.add('hidden');
+    fullscreenBtn.classList.add('hidden');
 }
 
 function rerollUpgradeOptions() {
@@ -424,34 +477,23 @@ function applyUpgrade(ability) {
     if (ability.id === 'extraUpgrade') {
         extraUpgradePicks++;
     } else {
-        // Evolution Logic: Check if adding this makes count 3
         let currentCount = playerUpgrades[ability.id] || 0;
         let isEvo = ability.tier.includes('evo');
         
-        // If it's already an evo, just add it (max 1 usually, but logic handles num)
         if (isEvo) {
              playerUpgrades[ability.id] = 1;
              if (playerAbilities.findIndex(a => a.id === ability.id) === -1) playerAbilities.push(ability);
              showNotification(`ACQUIRED EVOLUTION:<br>${ability.label}`, true);
         } else {
-            // Normal ability
             currentCount++;
-            
-            // Check for Evolution trigger
             let evoDef = EVOLUTIONS[ability.id];
             if (currentCount >= 3 && evoDef) {
-                // Evolve!
-                delete playerUpgrades[ability.id]; // Remove base
-                // Remove base from UI list
+                delete playerUpgrades[ability.id];
                 playerAbilities = playerAbilities.filter(a => a.id !== ability.id);
-                
-                // Add Evo
                 playerUpgrades[evoDef.id] = 1;
                 playerAbilities.push(evoDef);
-                
                 showNotification(`ABILITY EVOLVED!<br>${ability.label} ➜ ${evoDef.label}`, true);
             } else {
-                // Normal add
                 playerUpgrades[ability.id] = currentCount;
                 if (playerAbilities.findIndex(a => a.id === ability.id) === -1) {
                     playerAbilities.push(ability);
@@ -460,30 +502,69 @@ function applyUpgrade(ability) {
         }
     }
    
-    // Apply instant effects
     cars.forEach(c => {
         if(!c.ai) c.applyPlayerUpgrades(playerUpgrades);
         else if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); 
     });
 
-    // Re-check spawnables
-    // Basic Spawns
     if (playerUpgrades['miniRobot'] && !cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 1.5);
     if (playerUpgrades['smolRobot'] && !cars.some(c => c.playerId === 1002)) addFriendlyAICar(1002, 'defender', 1.0);
-    // Evo Spawns (Override basics if evolved)
     if (playerUpgrades['miniRobot_evo']) {
-        // Remove old if exists
         let old = cars.findIndex(c => c.playerId === 1001);
         if(old !== -1) cars.splice(old, 1);
-        if(!cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 2.0); // Stronger
+        if(!cars.some(c => c.playerId === 1001)) addFriendlyAICar(1001, 'attacker', 2.0);
     }
     
-    if (playerUpgrades['autoGoalie'] || playerUpgrades['autoGoalie_evo']) { 
-        if(!goaliePad) goaliePad = new GoaliePad(); 
-        if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20; // Wider pad
+    if ((playerUpgrades['autoGoalie'] || playerUpgrades['autoGoalie_evo']) && !goaliePad) { 
+        goaliePad = new GoaliePad(); 
+        if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
+    }
+    if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
+        boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35));
+        boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65));
     }
     
     updateUpgradesDisplay();
+}
+
+function updateUpgradesDisplay() {
+    const display = document.getElementById('player-upgrades-display');
+    display.innerHTML = '';
+    playerAbilities.forEach(ability => {
+        const count = playerUpgrades[ability.id] || 0;
+        // For Evos, always 1 count
+        const countDisplay = (!ability.tier.includes('evo') && count > 1) ? ` (x${count})` : '';
+        const item = document.createElement('div');
+        item.className = `px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm ability-level-${ability.tier} upgrade-icon-container`;
+        item.innerHTML = `
+            <span class="mr-1">${ability.icon}</span> ${ability.label}${countDisplay}
+            <div class="upgrade-tooltip"><h4 class="font-bold">${ability.label}</h4><p class="text-xs">${ability.desc}</p></div>
+        `;
+        display.appendChild(item);
+    });
+}
+
+function drawField(){
+    ctx.fillStyle=COLOR_FIELD; ctx.fillRect(0,0,canvas.width,canvas.height);
+    let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
+    let aiGoalHeight = (playerUpgrades.goalExpansion || playerUpgrades.goalExpansion_evo) ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
+    let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2;
+    let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2;
+
+    ctx.fillStyle = 'rgba(0, 102, 204, 0.2)'; ctx.fillRect(0, playerGoalTop, 15, goalHeight);
+    ctx.fillStyle = 'rgba(204, 0, 0, 0.2)'; ctx.fillRect(canvas.width - 15, aiGoalTop, 15, aiGoalHeight);
+
+    ctx.strokeStyle="#dcdcdc"; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(canvas.width/2,0); ctx.lineTo(canvas.width/2,canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.arc(canvas.width/2,canvas.height/2,80,0,Math.PI*2); ctx.stroke();
+   
+    ctx.strokeStyle=COLOR_BLUE; ctx.lineWidth=GOAL_LINE_WIDTH; 
+    ctx.beginPath(); ctx.moveTo(0,playerGoalTop); ctx.lineTo(0,playerGoalBottom); ctx.stroke();
+    ctx.strokeStyle=COLOR_RED; ctx.lineWidth=GOAL_LINE_WIDTH; 
+    ctx.beginPath(); ctx.moveTo(canvas.width,aiGoalTop); ctx.lineTo(canvas.width,aiGoalBottom); ctx.stroke();
+   
+    boostPads.forEach(pad=>pad.draw());
+    if (goaliePad) goaliePad.draw();
 }
 
 function exitUpgradePicker() {
@@ -492,8 +573,8 @@ function exitUpgradePicker() {
     overlay.classList.remove('visible');
     overlay.innerHTML = '';
     pauseBtn.classList.remove('hidden');
-    document.getElementById('fullscreen-btn').classList.remove('hidden');
-    lastTime = performance.now();
+    fullscreenBtn.classList.remove('hidden');
+    lastTime = performance.now(); // Reset lastTime to prevent jump
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -520,11 +601,12 @@ class Car {
         this.widthMultiplier = 1.0;
         this.lengthMultiplier = 1.0;
         this.teleportCooldown = 0;
+        this.repelField = false;
        
         this.stuckInCornerTimer = 0;
         this.aiStuckState = 'none'; 
         this.aiStuckStateTimer = 0;
-        this.stuckThresholdDist = 60 + Math.random() * 30; // Randomized distance
+        this.stuckThresholdDist = 60 + Math.random() * 30;
        
         this.updateDifficulty(difficulty);
         this.resetPos={x,y,angle:initial_angle};
@@ -537,6 +619,8 @@ class Car {
             this.maxBoost = 100 + 10 * (difficulty-1);
             this.rotationSpeed = this.baseRotationSpeed;
             this.sideFrictionFactor = this.baseSideFrictionFactor;
+            this.mass = 1.0;
+            this.repelField = false;
             
             if (this.role === 'defender' && !this.isFriendlyAI) {
                 this.sizeMultiplier = 0.85;
@@ -547,10 +631,24 @@ class Car {
             if (!this.isFriendlyAI && playerUpgrades.oilSlick) {
                 this.sideFrictionFactor *= 0.5;
             }
-            if (!this.isFriendlyAI && playerLevel > 100) {
-                 const extraLevels = Math.floor((playerLevel - 100) / 10);
-                 this.acceleration += extraLevels * 0.02;
-                 this.mass = 1.0 + (extraLevels * 0.1);
+            
+            // AI Level 50+ Logic (Counter Play)
+            if (!this.isFriendlyAI && playerLevel >= 50) {
+                 // Level 50: Tanky
+                 this.mass *= 1.5;
+                 this.sideFrictionFactor *= 2.0; // High grip, hard to drift
+                 this.acceleration += 0.1;
+            }
+            if (!this.isFriendlyAI && playerLevel >= 75) {
+                 // Level 75: Infinite Boost + Speed
+                 this.maxBoost = 9999;
+                 this.baseMaxSpeed *= 1.15;
+            }
+            if (!this.isFriendlyAI && playerLevel >= 90) {
+                 // Level 90: Omega Protocol
+                 this.acceleration *= 1.3;
+                 this.rotationSpeed *= 1.3;
+                 this.repelField = true; // AI gets player's Repel Field ability
             }
         } else {
             this.applyPlayerUpgrades(playerUpgrades);
@@ -559,15 +657,19 @@ class Car {
    
     applyPlayerUpgrades(upgrades) {
         if (this.ai) return; 
-        // Helper to sum count of base + evo
         let count = (id) => (upgrades[id]||0) + (upgrades[id+'_evo'] ? 1 : 0);
         let hasEvo = (id) => !!upgrades[id+'_evo'];
 
-        this.acceleration = this.baseAcceleration * (1 + count('accel') * (hasEvo('accel')?0.25:0.1));
-        this.rotationSpeed = this.baseRotationSpeed * (1 + count('turn') * (hasEvo('turn')?0.3:0.15));
+        // Engine Chip: +15% (was 10)
+        this.acceleration = this.baseAcceleration * (1 + count('accel') * (hasEvo('accel')?0.30:0.15));
+        this.rotationSpeed = this.baseRotationSpeed * playerSettings.sensitivity * (1 + count('turn') * (hasEvo('turn')?0.3:0.15));
         this.maxBoost = 100 + count('maxBoost') * (hasEvo('maxBoost')?50:20);
-        this.baseMaxSpeed = 5.0 * (1 + count('speed') * (hasEvo('speed')?0.15:0.05));
-        let frictionFactor = 1 - count('frictionFix') * (hasEvo('frictionFix')?1.0:0.15); // Evo = zero drift
+        
+        // Aero Kit: Increased max speed
+        let aeroFactor = count('aerodynamics') * 0.1; 
+        this.baseMaxSpeed = 5.0 * (1 + count('speed') * (hasEvo('speed')?0.15:0.05) + aeroFactor);
+        
+        let frictionFactor = 1 - count('frictionFix') * (hasEvo('frictionFix')?1.0:0.15);
         this.sideFrictionFactor = this.baseSideFrictionFactor * Math.max(0.0, frictionFactor);
        
         this.sizeMultiplier = 1.0; 
@@ -593,23 +695,46 @@ class Car {
        
         if (keys[this.controls['up']]) {accelerationForce=this.acceleration;this.throttleDirection=1;}
         if (keys[this.controls['down']]) {
-            let revMult = playerUpgrades.reverseKing ? 1.3 : 0.7;
-            let brakePower = (playerUpgrades.brake_evo ? 50.0 : (playerUpgrades.brake ? 2.0 : 1.0)); // Instant stop evo
-            accelerationForce = -this.acceleration * (keys[this.controls['up']] ? brakePower : revMult);
+            let revMult = playerUpgrades.reverseKing ? 1.5 : 0.7; 
+            let isBraking = keys[this.controls['down']] && Math.abs(this.speed) > 0.1;
+            let brakePower = (playerUpgrades.brake_evo ? 50.0 : (playerUpgrades.brake ? 4.0 : 1.0)); 
+            
+            if (isBraking && this.speed > 0.1) {
+                 accelerationForce = -this.acceleration * brakePower;
+            } else {
+                 accelerationForce = -this.acceleration * revMult;
+            }
             this.throttleDirection=-1;
         }
         
-        let tpTime = playerUpgrades.platinumTeleport_evo ? 1.0 : 5.0;
+        let tpTime = playerUpgrades.platinumTeleport_evo ? 1.0 : 3.0; 
         if ((playerUpgrades.platinumTeleport || playerUpgrades.platinumTeleport_evo) && keys['KeyT'] && this.teleportCooldown <= 0) {
-            const target = foreverBalls[0];
-            let dx = canvas.width - target.x;
-            let dy = (canvas.height/2) - target.y;
-            let angle = Math.atan2(dy, dx);
-            this.x = target.x - Math.cos(angle) * 50;
-            this.y = target.y - Math.sin(angle) * 50;
-            this.velX = target.velX; this.velY = target.velY;
+            const target = foreverBalls[0]; 
+            const enemyGoalX = canvas.width; 
+            const enemyGoalY = canvas.height/2;
+            
+            let vBx = enemyGoalX - target.x;
+            let vBy = enemyGoalY - target.y;
+            let mag = Math.hypot(vBx, vBy);
+            let uBx = vBx / mag;
+            let uBy = vBy / mag;
+            
+            let tX = target.x - (uBx * 60);
+            let tY = target.y - (uBy * 60);
+            tX = Math.max(50, Math.min(canvas.width-50, tX));
+            tY = Math.max(50, Math.min(canvas.height-50, tY));
+
+            this.x = tX;
+            this.y = tY;
+            
+            let angleToGoal = Math.atan2(vBy, vBx);
+            this.angle = (-angleToGoal * 180 / Math.PI); 
+
+            this.velX = target.velX; 
+            this.velY = target.velY;
+            
             this.teleportCooldown = tpTime;
-            showNotification("BLINK!");
+            showNotification("SMART BLINK!");
         }
         if (this.teleportCooldown > 0) this.teleportCooldown -= deltaTime;
        
@@ -633,44 +758,33 @@ class Car {
         } else {
             this.boostTimer = Math.max(0, this.boostTimer); 
         }
+
+        if (playerUpgrades.slipStream || playerUpgrades.slipStream_evo) {
+             let range = 250;
+             let nearAI = cars.some(c => c.ai && Math.hypot(c.x - this.x, c.y - this.y) < range);
+             if (nearAI) {
+                 this.refillBoost(playerUpgrades.slipStream_evo ? 1.0 : 0.5);
+             }
+        }
     }
 
     handleAI(deltaTime) {
         if (!ball || this.isStunned) return;
         
-        // 1. STUCK STATE MACHINE (Rewritten sequence)
+        // STUCK LOGIC
         if (this.aiStuckState !== 'none') {
             this.aiStuckStateTimer -= deltaTime;
-            
             if (this.aiStuckState === 'reversing') {
-                // 1. Move back
                 this.throttleDirection = -1;
                 let rad=Math.PI*this.angle/180;
-                this.velX-=Math.cos(rad)*this.acceleration;
-                this.velY+=Math.sin(rad)*this.acceleration;
-                
-                if (this.aiStuckStateTimer <= 0) { 
-                    this.aiStuckState = 'wall_seek'; 
-                    this.aiStuckStateTimer = 0.5; 
-                }
+                this.velX-=Math.cos(rad)*this.acceleration; this.velY+=Math.sin(rad)*this.acceleration;
+                if (this.aiStuckStateTimer <= 0) { this.aiStuckState = 'wall_seek'; this.aiStuckStateTimer = 0.5; }
             } else if (this.aiStuckState === 'wall_seek') {
-                // 2. Drive towards second closest wall
-                // Determine walls dists
-                let dists = [
-                    {w:'left', d:this.x}, 
-                    {w:'right', d:canvas.width-this.x}, 
-                    {w:'top', d:this.y}, 
-                    {w:'bottom', d:canvas.height-this.y}
-                ];
+                let dists = [{w:'left', d:this.x}, {w:'right', d:canvas.width-this.x}, {w:'top', d:this.y}, {w:'bottom', d:canvas.height-this.y}];
                 dists.sort((a,b) => a.d - b.d);
-                let targetWall = dists[1]; // 2nd closest
-                
+                let targetWall = dists[1]; 
                 let tx=this.x, ty=this.y;
-                if(targetWall.w==='left') tx=0;
-                else if(targetWall.w==='right') tx=canvas.width;
-                else if(targetWall.w==='top') ty=0;
-                else if(targetWall.w==='bottom') ty=canvas.height;
-                
+                if(targetWall.w==='left') tx=0; else if(targetWall.w==='right') tx=canvas.width; else if(targetWall.w==='top') ty=0; else if(targetWall.w==='bottom') ty=canvas.height;
                 const dx=tx-this.x, dy=ty-this.y;
                 const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
                 let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
@@ -678,61 +792,34 @@ class Car {
                 else if(angleDiff<-this.rotationSpeed){this.angle=(this.angle-this.rotationSpeed)%360;}
                 this.throttleDirection = 1;
                 let rad=Math.PI*this.angle/180;
-                this.velX+=Math.cos(rad)*this.acceleration;
-                this.velY-=Math.sin(rad)*this.acceleration;
-
-                if (this.aiStuckStateTimer <= 0) { 
-                    this.aiStuckState = 'turn_ball'; 
-                    this.aiStuckStateTimer = 0.4; 
-                }
+                this.velX+=Math.cos(rad)*this.acceleration; this.velY-=Math.sin(rad)*this.acceleration;
+                if (this.aiStuckStateTimer <= 0) { this.aiStuckState = 'turn_ball'; this.aiStuckStateTimer = 0.4; }
             } else if (this.aiStuckState === 'turn_ball') {
-                // 3. Turn back at ball
                 let targetBall = foreverBalls[0];
                 const dx=targetBall.x-this.x, dy=targetBall.y-this.y;
                 const targetAngleRad=Math.atan2(-dy,dx); let targetAngle=(targetAngleRad*180/Math.PI+360)%360;
                 let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
                 if(angleDiff>this.rotationSpeed){this.angle=(this.angle+this.rotationSpeed)%360;}
                 else if(angleDiff<-this.rotationSpeed){this.angle=(this.angle-this.rotationSpeed)%360;}
-                
-                if (this.aiStuckStateTimer <= 0) { 
-                    this.aiStuckState = 'hit_ball'; 
-                    this.aiStuckStateTimer = 0.4; 
-                }
+                if (this.aiStuckStateTimer <= 0) { this.aiStuckState = 'hit_ball'; this.aiStuckStateTimer = 0.4; }
             } else if (this.aiStuckState === 'hit_ball') {
-                // 4. Hit ball (move forward)
                 this.throttleDirection = 1;
                 let rad=Math.PI*this.angle/180;
-                this.velX+=Math.cos(rad)*this.acceleration;
-                this.velY-=Math.sin(rad)*this.acceleration;
-                
-                if (this.aiStuckStateTimer <= 0) { 
-                    this.aiStuckState = 'reversing_small'; 
-                    this.aiStuckStateTimer = 0.3; 
-                }
+                this.velX+=Math.cos(rad)*this.acceleration; this.velY-=Math.sin(rad)*this.acceleration;
+                if (this.aiStuckStateTimer <= 0) { this.aiStuckState = 'reversing_small'; this.aiStuckStateTimer = 0.3; }
             } else if (this.aiStuckState === 'reversing_small') {
-                // 5. Move back a little bit
                 this.throttleDirection = -1;
                 let rad=Math.PI*this.angle/180;
-                this.velX-=Math.cos(rad)*this.acceleration;
-                this.velY+=Math.sin(rad)*this.acceleration;
-                
-                if (this.aiStuckStateTimer <= 0) {
-                    this.aiStuckState = 'none';
-                    this.stuckInCornerTimer = 0;
-                }
+                this.velX-=Math.cos(rad)*this.acceleration; this.velY+=Math.sin(rad)*this.acceleration;
+                if (this.aiStuckStateTimer <= 0) { this.aiStuckState = 'none'; this.stuckInCornerTimer = 0; }
             }
             return;
         }
         
-        // 2. STUCK DETECTION
-        let thresh = this.stuckThresholdDist; // Randomized per car
+        let thresh = this.stuckThresholdDist;
         if ((this.x < thresh || this.x > canvas.width - thresh || this.y < thresh || this.y > canvas.height - thresh) && this.speed < 2.0) {
              this.stuckInCornerTimer += deltaTime;
-             if (this.stuckInCornerTimer > 1.5) { 
-                 this.aiStuckState = 'reversing';
-                 this.aiStuckStateTimer = 0.4;
-                 return;
-             }
+             if (this.stuckInCornerTimer > 1.5) { this.aiStuckState = 'reversing'; this.aiStuckStateTimer = 0.4; return; }
         } else {
             this.stuckInCornerTimer = 0;
         }
@@ -803,23 +890,14 @@ class Car {
                 break;
         }
         
-        // 3. FRIENDLY CONSTRAINTS (Apply to targetX)
         if (this.isFriendlyAI) {
-            if (this.role === 'attacker') {
-                // Stay in right half (enemy side) - x > width/2
-                // Allow slight crossing for ball chase
-                targetX = Math.max(canvas.width/2 + 20, targetX); 
-            } else if (this.role === 'defender') {
-                // Stay in left half (home side) - x < width/2
-                targetX = Math.min(canvas.width/2 - 20, targetX);
-            }
+            if (this.role === 'attacker') targetX = Math.max(canvas.width/2 + 20, targetX); 
+            else if (this.role === 'defender') targetX = Math.min(canvas.width/2 - 20, targetX);
         }
 
-        // Prediction Logic (Smarter from Lvl 50-100)
         if (playerLevel > 50 && (this.role === 'attacker' || (this.role === 'mid' && amIClosest))) {
-            let smartFactor = Math.min(1.0, (playerLevel - 50) / 50.0); // 0 at 50, 1 at 100
-            // Predict ball position based on current velocity
-            let leadTime = 0.5 * smartFactor; // lead up to 0.5s ahead
+            let smartFactor = Math.min(1.0, (playerLevel - 50) / 50.0);
+            let leadTime = 0.5 * smartFactor;
             targetX += targetBall.velX * leadTime;
             targetY += targetBall.velY * leadTime;
         }
@@ -831,9 +909,12 @@ class Car {
         let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
         const dist = Math.hypot(dx,dy);
        
-        if(this.effects.confused) {
-            this.angle = (this.angle + 10) % 360;
-            this.throttleDirection = 1;
+        // NEW VIRUS LOGIC: Triggers at start of round (first 5 seconds)
+        let isRoundStartVirus = playerUpgrades.platinumSuperAI && roundTime < 5.0 && !this.isFriendlyAI;
+        
+        if(this.effects.confused || isRoundStartVirus) {
+            if(Math.random() < 0.1) this.throttleDirection = (Math.random() > 0.5 ? 1 : -1);
+            this.angle = (this.angle + (Math.random() > 0.5 ? 15 : -15)) % 360;
         } else {
             if(angleDiff>this.rotationSpeed){this.angle=(this.angle+this.rotationSpeed)%360;}
             else if(angleDiff<-this.rotationSpeed){this.angle=(this.angle-this.rotationSpeed)%360;}
@@ -848,11 +929,12 @@ class Car {
             }
         }
        
-        const AI_BOOST_LEVEL_UNLOCK = 6; 
         let canBoost = false;
-        if (getNumberOfAICars() >= AI_BOOST_LEVEL_UNLOCK || aiDifficulty > 5) {
-            if (Math.abs(angleDiff) < 10 && dist > 150 && this.boost > 20) canBoost = true;
-            if (this.role === 'defender' && dist > 300) canBoost = true;
+        if (endConditionType === 'forever' && playerLevel >= 45) {
+             if (Math.abs(angleDiff) < 10 && dist > 150 && this.boost > 20) canBoost = true;
+             if (this.role === 'defender' && dist > 300) canBoost = true;
+        } else if (gameMode === 'Vs Computer' && endConditionType !== 'forever' && aiDifficulty > 5) {
+             if (Math.abs(angleDiff) < 10 && dist > 150 && this.boost > 20) canBoost = true;
         }
         this.boosting = canBoost;
     }
@@ -915,14 +997,16 @@ class Car {
         if (this.y < marginH) { this.y = marginH; this.velY *= -0.5; }
         if (this.y > canvas.height - marginH) { this.y = canvas.height - marginH; this.velY *= -0.5; }
         
-        if (!this.ai && playerUpgrades.repelField) {
+        // Repel Field Logic (Player or AI)
+        if ((!this.ai && playerUpgrades.repelField) || (this.ai && this.repelField)) {
             cars.forEach(c => {
-               if (c.ai && !c.isFriendlyAI) {
+               if (c !== this && c.team_side !== this.team_side) { // Affects enemies
                    let d = Math.hypot(c.x - this.x, c.y - this.y);
-                   if (d < 150) {
+                   if (d < 200) { 
                        let angle = Math.atan2(c.y - this.y, c.x - this.x);
-                       c.velX += Math.cos(angle) * 1.0;
-                       c.velY += Math.sin(angle) * 1.0;
+                       let push = 2.0; 
+                       c.velX += Math.cos(angle) * push;
+                       c.velY += Math.sin(angle) * push;
                    }
                } 
             });
@@ -955,10 +1039,15 @@ class Car {
         }
         ctx.restore();
        
-        if(this.effects.ring || this.effects.forceField){
+        if(this.effects.ring || this.effects.forceField || this.repelField){
             ctx.save();
             ctx.beginPath();
-            ctx.strokeStyle = this.effects.ring ? "#fcd34d" : (this.effects.forceField ? "#00ff00":"#00fff4");
+            let style = "#00fff4";
+            if (this.effects.ring) style = "#fcd34d";
+            if (this.effects.forceField) style = "#00ff00";
+            if (this.repelField) style = "#ef4444"; // Red for AI repel
+            
+            ctx.strokeStyle = style;
             ctx.globalAlpha = 0.6; ctx.lineWidth=4;
             let radius = (CAR_WIDTH * this.sizeMultiplier) * 1.7;
             if(this.effects.forceField) radius = (CAR_WIDTH * this.sizeMultiplier) * 2.5;
@@ -993,54 +1082,58 @@ class Car {
     }
 }
 
+// ... Ball, BoostPad, GoaliePad classes are same ...
 class Ball {
     constructor(x, y, radius, pointType=1) {
         this.x=x;this.y=y;this.radius=radius;this.color=COLOR_CYAN;
         this.velX=0;this.velY=0;this.maxSpeed=35; this.pointType=pointType; this.effects = {};
         this.stuckTimer = 0; this.ballStuckCountdown = 0;
     }
-   
     move(deltaTime) {
-        // Passive Ball Magnet
         if (playerUpgrades.ballMagnet || playerUpgrades.ballMagnet_evo) {
              let p = cars[0];
              if (p && !p.ai) {
                  let d = Math.hypot(p.x-this.x, p.y-this.y);
-                 if (d < 200) {
-                     let pullStr = playerUpgrades.ballMagnet_evo ? 0.005 : 0.002;
-                     this.velX += (p.x - this.x) * pullStr;
-                     this.velY += (p.y - this.y) * pullStr;
+                 if (d < 250) { // Increased range slightly
+                     let pullStr = playerUpgrades.ballMagnet_evo ? 0.006 : 0.003;
+                     this.velX += (p.x - this.x) * pullStr * PHYSICS_TICK_RATE;
+                     this.velY += (p.y - this.y) * pullStr * PHYSICS_TICK_RATE;
                  }
              }
         }
         if (playerUpgrades.gravityWell) {
+             // Stronger pull to enemy goal
              let targetX = canvas.width; let targetY = canvas.height/2;
-             this.velX += (targetX - this.x) * 0.001;
-             this.velY += (targetY - this.y) * 0.001;
+             this.velX += (targetX - this.x) * 0.0015 * PHYSICS_TICK_RATE;
+             this.velY += (targetY - this.y) * 0.0015 * PHYSICS_TICK_RATE;
         }
-
         this.velX *= 0.98; this.velY *= 0.98;
         let speed = Math.hypot(this.velX, this.velY);
         if(speed > this.maxSpeed){ let sc = this.maxSpeed / speed; this.velX *= sc; this.velY *= sc; }
-       
         this.x += this.velX * deltaTime * PHYSICS_TICK_RATE;
         this.y += this.velY * deltaTime * PHYSICS_TICK_RATE;
-       
         let bMargin = this.radius;
         if (this.x < bMargin) { this.x = bMargin; this.velX *= -0.8; }
         else if (this.x > canvas.width - bMargin) { this.x = canvas.width - bMargin; this.velX *= -0.8; }
         if (this.y < bMargin) { this.y = bMargin; this.velY *= -0.8; }
         else if (this.y > canvas.height - bMargin) { this.y = canvas.height - bMargin; this.velY *= -0.8; }
-       
-        // Sticky Net Logic
+        
+        // Platinum Sticky Net (Black Hole)
         if(playerUpgrades.platinumStickyNet || playerUpgrades.platinumStickyNet_evo) {
             let aiGoalTop=canvas.height/2-GOAL_HEIGHT/2, aiGoalBottom=canvas.height/2+GOAL_HEIGHT/2;
-            if(this.y>aiGoalTop && this.y<aiGoalBottom && this.x > canvas.width - (BALL_RADIUS*3)) {
-                this.velX *= 0.5; // Stronger stick
+            let triggerDist = 200;
+            if(this.x > canvas.width - triggerDist && this.y > aiGoalTop - 50 && this.y < aiGoalBottom + 50) {
+                 let goalCX = canvas.width + 20; 
+                 let goalCY = canvas.height/2;
+                 let dx = goalCX - this.x;
+                 let dy = goalCY - this.y;
+                 let d = Math.hypot(dx, dy);
+                 let pull = 2000 / (d * d + 1); 
+                 this.velX += (dx/d) * pull;
+                 this.velY += (dy/d) * pull;
             }
         }
-       
-        // Stuck Logic
+
         const cornerCheckSize = 150; 
         const ballInCorner = (this.y < cornerCheckSize || this.y > canvas.height - cornerCheckSize) && (this.x < cornerCheckSize || this.x > canvas.width - cornerCheckSize);
         if (speed < 0.8 && ballInCorner) { 
@@ -1055,7 +1148,6 @@ class Ball {
             this.stuckTimer = 0; this.ballStuckCountdown = 0;
         }
     }
-   
     draw() {
         ctx.fillStyle=this.pointType===1?this.color:(this.pointType===2?'#ffe066':'#ff92c6');
         ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fill();
@@ -1073,8 +1165,15 @@ class Ball {
         let maxOffset=canvas.height*MAX_CENTER_OFFSET_FACTOR, randomYOffset=Math.random()*2*maxOffset-maxOffset;
         this.x=canvas.width/2; this.y=canvas.height/2+randomYOffset; this.velX=0;this.velY=0;
         this.stuckTimer = 0; this.ballStuckCountdown = 0;
+        
+        // Chaos Mode Logic (Logic 2: Bias Extra Balls towards Enemy)
+        let chaos = (playerUpgrades.platinumDoubleAll || playerUpgrades.platinumDoubleAll_evo);
+        if(chaos && this !== foreverBalls[0]) {
+             this.x = (canvas.width/2) + 300; // Spawn closer to AI goal
+        }
+        
         let r=Math.random();
-        if(playerUpgrades.platinumDoubleAll) {
+        if(chaos) {
             if(r<0.10) this.pointType=3; else if(r<0.30) this.pointType=2; else this.pointType=1;
         } else if(r<0.03) this.pointType=3; else if(r<0.13) this.pointType=2; else this.pointType=1;
     }
@@ -1098,7 +1197,6 @@ class BoostPad {
     consume(car) {
         if (!this.active) return;
         this.active = false; this.cooldownTimer = 3.0;
-        // Check for evo boost regen
         let refill = 25 + (playerUpgrades.boostRegen ? 8 : 0) + (playerUpgrades.boostRegen_evo ? 15 : 0);
         car.refillBoost(refill);
     }
@@ -1108,7 +1206,6 @@ class GoaliePad {
     constructor() { this.width = 14; this.height = GOAL_HEIGHT * 0.20; this.x = 7; this.y = canvas.height / 2; this.speed = 400; }
     update(deltaTime) {
         let targetBall = foreverBalls[0];
-        // Find threatening ball
         if (foreverBalls.length > 1) {
              let minX = Infinity;
              foreverBalls.forEach(b => { if(b.x < minX) { minX = b.x; targetBall = b; } });
@@ -1135,7 +1232,6 @@ class GoaliePad {
     }
 }
 
-// ====== Game Logic ======
 function getInitialAngle(x1,y1,x2,y2){
     let angleRad=Math.atan2(y1-y2,x2-x1);
     return (angleRad*180/Math.PI+360)%360;
@@ -1157,11 +1253,7 @@ function addEnemyAICar() {
     let P2_X=canvas.width-100-CAR_WIDTH/2;
     let P1_Y_OFFSET=CAR_HEIGHT*2;
     let aiY=center_y+((Math.random() > 0.5)?P1_Y_OFFSET*(Math.random()*2):-P1_Y_OFFSET*Math.random()*2);
-    
-    // Level 100+ scaling difficulty
     let effectiveDiff = aiDifficulty;
-    if (playerLevel > 100) effectiveDiff += Math.floor((playerLevel-100)/10);
-
     let newAI = new Car(P2_X,aiY,COLOR_RED,{},'right',2+getNumberOfAICars(),getInitialAngle(P2_X,aiY,center_x,center_y),true,effectiveDiff);
     cars.push(newAI);
     assignAIRoles(cars.filter(c => c.ai && !c.isFriendlyAI));
@@ -1178,22 +1270,30 @@ function setupGameObjects(mode,initialAICount=1){
     canvas.width = DEFAULT_WIDTH; canvas.height = DEFAULT_HEIGHT;
     let center_x=canvas.width/2, center_y=canvas.height/2;
     foreverBalls = [];
+    
+    // Updated Chaos Mode Logic: Always spawn 3 balls if active
     let count = (playerUpgrades.platinumDoubleAll || playerUpgrades.platinumDoubleAll_evo) ? 3 : 1;
+    
     for(let i=0;i<count;i++) {
-        let b=new Ball(center_x, center_y, BALL_RADIUS); b.reset(); foreverBalls.push(b);
+        let b=new Ball(center_x, center_y, BALL_RADIUS); 
+        b.reset(); 
+        foreverBalls.push(b);
     }
     ball = foreverBalls[0];
    
     cars=[];
     let P1_X=100+CAR_WIDTH/2, P2_X=canvas.width-100-CAR_WIDTH/2;
-    cars.push(new Car(P1_X,center_y,COLOR_BLUE,{'up':'KeyW','down':'KeyS','left':'KeyA','right':'KeyD','boost':'ShiftLeft'},'left',1,0));
+    
+    cars.push(new Car(P1_X,center_y,COLOR_BLUE, playerSettings.keybinds[0],'left',1,0));
 
     if(mode==="1v1 Multiplayer") {
-        cars.push(new Car(P2_X,center_y,COLOR_RED,{'up':'ArrowUp','down':'ArrowDown','left':'ArrowLeft','right':'ArrowRight','boost':'ShiftRight'},'right',2,180));
+        cars.push(new Car(P2_X,center_y,COLOR_RED, playerSettings.keybinds[1],'right',2,180));
     } else if(mode==="2v2 Multiplayer") {
-        cars.push(new Car(P1_X,center_y+50, COLOR_BLUE, { 'up': 'KeyT', 'down': 'KeyG', 'left': 'KeyF', 'right': 'KeyH', 'boost': 'Space' }, 'left', 2, 0));
-        cars.push(new Car(P2_X,center_y-50, COLOR_RED, { 'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight', 'boost': 'ControlRight' }, 'right', 3, 180));
-        cars.push(new Car(P2_X,center_y+50, COLOR_RED, { 'up': 'KeyI', 'down': 'KeyK', 'left': 'KeyJ', 'right': 'KeyL', 'boost': 'ShiftRight' }, 'right', 4, 180));
+        cars = []; 
+        cars.push(new Car(P1_X, center_y+50, COLOR_BLUE, playerSettings.keybinds[0], 'left', 1, 0));
+        cars.push(new Car(P1_X, center_y-50, COLOR_BLUE, playerSettings.keybinds[2], 'left', 3, 0)); 
+        cars.push(new Car(P2_X, center_y-50, COLOR_RED, playerSettings.keybinds[1], 'right', 2, 180));
+        cars.push(new Car(P2_X, center_y+50, COLOR_RED, playerSettings.keybinds[3], 'right', 4, 180)); 
     } else if(mode==="Vs Computer"){
         for(let i=0; i<initialAICount;i++){
             let aiY=center_y+((i%2===0)?50*(i/2):-50*Math.ceil(i/2));
@@ -1218,110 +1318,6 @@ function setupGameObjects(mode,initialAICount=1){
     if(playerUpgrades.freePad) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20));
 }
 
-// --- UI ---
-const overlay = document.getElementById('overlay');
-const uiPanel = document.getElementById('ui-panel');
-const foreverStatusPanel = document.getElementById('forever-status-panel');
-const pauseBtn = document.getElementById('pause-btn');
-
-function updateUI(){
-    const sLeft = document.getElementById('score-left');
-    const sRight = document.getElementById('score-right');
-    sLeft.textContent=`BLUE: ${scoreLeft}`;
-    sRight.textContent=`RED: ${scoreRight}`;
-
-    if (endConditionType === 'points') {
-        document.getElementById('center-info').style.visibility = 'hidden';
-        // Adjust font sizes based on who is winning
-        if (scoreLeft > scoreRight) {
-            sLeft.classList.add('score-large'); sLeft.classList.remove('score-normal');
-            sRight.classList.add('score-normal'); sRight.classList.remove('score-large');
-        } else if (scoreRight > scoreLeft) {
-            sRight.classList.add('score-large'); sRight.classList.remove('score-normal');
-            sLeft.classList.add('score-normal'); sLeft.classList.remove('score-large');
-        } else {
-            sLeft.classList.add('score-normal'); sLeft.classList.remove('score-large');
-            sRight.classList.add('score-normal'); sRight.classList.remove('score-large');
-        }
-        uiPanel.classList.remove('hidden');
-        foreverStatusPanel.classList.add('hidden');
-    } 
-    else if (endConditionType === 'timed') {
-        document.getElementById('center-info').style.visibility = 'visible';
-        let min=Math.floor(gameTimer/60), sec=Math.floor(gameTimer%60);
-        const timerEl = document.getElementById('timer');
-        timerEl.textContent=`${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-        document.getElementById('mode-info').textContent=`TIME`;
-        
-        // Timed Mode Visuals
-        if (gameTimer <= 30) timerEl.classList.add('blink-active');
-        else timerEl.classList.remove('blink-active');
-
-        if (gameTimer <= 10) timerEl.classList.add('text-red-500');
-        else timerEl.classList.remove('text-red-500');
-
-        uiPanel.classList.remove('hidden');
-        foreverStatusPanel.classList.add('hidden');
-    } 
-    else if (endConditionType === 'forever'){
-        // FORCE LARGE FONT FOR FOREVER MODE
-        sLeft.classList.add('score-large'); sLeft.classList.remove('score-normal');
-        sRight.classList.add('score-large'); sRight.classList.remove('score-normal');
-
-        document.getElementById('center-info').style.visibility = 'visible';
-        document.getElementById('timer').textContent=`${playerLevel}`;
-        document.getElementById('mode-info').textContent=`PLAYER LEVEL`;
-        document.getElementById('player-level-display').textContent = playerLevel;
-        let numAI = getNumberOfAICars();
-        document.getElementById('ai-status').innerText = `LV ${aiDifficulty} (${numAI} Bot${numAI>1?'s':''})`;
-        
-        if (playerLevel > 100) document.getElementById('ai-buff-text').classList.remove('hidden');
-        
-        uiPanel.classList.remove('hidden');
-        foreverStatusPanel.classList.remove('hidden');
-    }
-}
-
-function updateUpgradesDisplay() {
-    const display = document.getElementById('player-upgrades-display');
-    display.innerHTML = '';
-    playerAbilities.forEach(ability => {
-        const count = playerUpgrades[ability.id] || 0;
-        // For Evos, always 1 count
-        const countDisplay = (!ability.tier.includes('evo') && count > 1) ? ` (x${count})` : '';
-        const item = document.createElement('div');
-        item.className = `px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm ability-level-${ability.tier} upgrade-icon-container`;
-        item.innerHTML = `
-            <span class="mr-1">${ability.icon}</span> ${ability.label}${countDisplay}
-            <div class="upgrade-tooltip"><h4 class="font-bold">${ability.label}</h4><p class="text-xs">${ability.desc}</p></div>
-        `;
-        display.appendChild(item);
-    });
-}
-
-function drawField(){
-    ctx.fillStyle=COLOR_FIELD; ctx.fillRect(0,0,canvas.width,canvas.height);
-    let goalHeight = playerUpgrades.shortGoal ? GOAL_HEIGHT * 0.7 : GOAL_HEIGHT;
-    let aiGoalHeight = (playerUpgrades.goalExpansion || playerUpgrades.goalExpansion_evo) ? GOAL_HEIGHT * 1.3 : GOAL_HEIGHT;
-    let playerGoalTop=canvas.height/2 - goalHeight/2, playerGoalBottom=canvas.height/2 + goalHeight/2;
-    let aiGoalTop=canvas.height/2 - aiGoalHeight/2, aiGoalBottom=canvas.height/2 + aiGoalHeight/2;
-
-    ctx.fillStyle = 'rgba(0, 102, 204, 0.2)'; ctx.fillRect(0, playerGoalTop, 15, goalHeight);
-    ctx.fillStyle = 'rgba(204, 0, 0, 0.2)'; ctx.fillRect(canvas.width - 15, aiGoalTop, 15, aiGoalHeight);
-
-    ctx.strokeStyle="#dcdcdc"; ctx.lineWidth=4;
-    ctx.beginPath(); ctx.moveTo(canvas.width/2,0); ctx.lineTo(canvas.width/2,canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.arc(canvas.width/2,canvas.height/2,80,0,Math.PI*2); ctx.stroke();
-   
-    ctx.strokeStyle=COLOR_BLUE; ctx.lineWidth=GOAL_LINE_WIDTH; 
-    ctx.beginPath(); ctx.moveTo(0,playerGoalTop); ctx.lineTo(0,playerGoalBottom); ctx.stroke();
-    ctx.strokeStyle=COLOR_RED; ctx.lineWidth=GOAL_LINE_WIDTH; 
-    ctx.beginPath(); ctx.moveTo(canvas.width,aiGoalTop); ctx.lineTo(canvas.width,aiGoalBottom); ctx.stroke();
-   
-    boostPads.forEach(pad=>pad.draw());
-    if (goaliePad) goaliePad.draw();
-}
-
 function checkCarBallCollision(car, ball){
     let dx=ball.x-car.x, dy=ball.y-car.y;
     let collisionRadius=BALL_RADIUS+(CAR_WIDTH * car.sizeMultiplier * 0.5);
@@ -1336,14 +1332,11 @@ function checkCarBallCollision(car, ball){
             if (playerUpgrades.doubleKick_evo) force *= 3;
         }
         
-        // Physics: Heavy cars push ball harder, light cars pushed back more
         force *= car.mass;
-        
         ball.velX+=Math.cos(impulseAngle)*force; ball.velY+=Math.sin(impulseAngle)*force;
         
-        // Car Recoil
         let recoil = 1.0 / car.mass;
-        if (!car.ai && (playerUpgrades.stickTires || playerUpgrades.stickTires_evo)) recoil *= 0.0; // EVO is zero
+        if (!car.ai && (playerUpgrades.stickTires || playerUpgrades.stickTires_evo)) recoil *= 0.0;
         car.velX -= Math.cos(impulseAngle) * force * 0.5 * recoil;
         car.velY -= Math.sin(impulseAngle) * force * 0.5 * recoil;
 
@@ -1377,23 +1370,17 @@ function checkCarCarCollision(car1, car2) {
     if (dist < collisionDistance) {
         let angle = Math.atan2(dy, dx);
         let overlap = collisionDistance - dist;
-        let sepX = Math.cos(angle)*(overlap/2 + 0.5), sepY = Math.sin(angle)*(overlap/2 + 0.5); // Added 0.5 buffer
+        let sepX = Math.cos(angle)*(overlap/2 + 0.5), sepY = Math.sin(angle)*(overlap/2 + 0.5);
         car1.x-=sepX; car1.y-=sepY; car2.x+=sepX; car2.y+=sepY;
        
         let v1 = car1.velX*Math.cos(angle) + car1.velY*Math.sin(angle);
         let v2 = car2.velX*Math.cos(angle) + car2.velY*Math.sin(angle);
-        
-        // Physics collision with mass
         let m1 = car1.mass, m2 = car2.mass;
         let v1Final = (v1 * (m1 - m2) + 2 * m2 * v2) / (m1 + m2);
         let v2Final = (v2 * (m2 - m1) + 2 * m1 * v1) / (m1 + m2);
         
         car1.velX += (v1Final - v1) * Math.cos(angle); car1.velY += (v1Final - v1) * Math.sin(angle);
         car2.velX += (v2Final - v2) * Math.cos(angle); car2.velY += (v2Final - v2) * Math.sin(angle);
-        
-        if (!car1.ai && playerUpgrades.boostSteal && car2.ai && car2.boost > 10) {
-            car2.boost -= 10; car1.refillBoost(10);
-        }
     }
 }
 
@@ -1417,26 +1404,21 @@ function handleGoal(scoringTeam, scoredBall) {
         if (endConditionType === 'forever') {
             if (Math.floor(playerLevel / 5) > Math.floor(oldLevel / 5)) pendingUpgradePick = true;
             
-            // Changed from 10 to 15 as requested
-            if (Math.floor(playerLevel / 15) > Math.floor(oldLevel / 15)) {
-                if (getNumberOfAICars() < 6) addEnemyAICar();
-                else { 
-                    aiDifficulty++; 
-                    showNotification("AI EVOLVED: DIFFICULTY UP");
-                }
+            if (getNumberOfAICars() < 3) {
+                if (playerLevel >= 15 && getNumberOfAICars() < 2) addEnemyAICar();
+                if (playerLevel >= 30 && getNumberOfAICars() < 3) addEnemyAICar();
             }
-            if (playerLevel > 100 && Math.floor(playerLevel / 10) > Math.floor(oldLevel / 10)) {
-                showNotification("WARNING: AI SYSTEM OVERCLOCK");
-                cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
+
+            if (playerLevel <= 100) {
+                 aiDifficulty = Math.min(100, Math.floor(playerLevel / 2) + 1);
+                 cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
             }
         }
        
-        // Effects
         cars[0].effects.goalBlock = { duration: 3.0 };
         cars.filter(c => c.ai && !c.isFriendlyAI).forEach(ai => {
             if (playerUpgrades.aiSlow || playerUpgrades.aiSlow_evo) ai.effects.slow = { duration: 5.0, factor: (playerUpgrades.aiSlow_evo?0.2:0.5) };
             if (playerUpgrades.timeFreeze || playerUpgrades.timeFreeze_evo) { ai.isStunned = true; ai.stunDuration = (playerUpgrades.timeFreeze_evo?4.0:2.0); }
-            if (playerUpgrades.platinumSuperAI) ai.effects.confused = { duration: 8.0 };
         });
        
         if(playerUpgrades.ballSplit && foreverBalls.length < 5) {
@@ -1456,6 +1438,8 @@ function handleGoal(scoringTeam, scoredBall) {
     if(foreverBalls.length === 1 || scoredBall.pointType > 1) cars.forEach(c => c.reset());
     if(foreverBalls.length > 1) foreverBalls = foreverBalls.filter(b => b !== scoredBall);
     else scoredBall.reset();
+    
+    roundTime = 0; // Reset round timer
    
     if (gameState === 'playing') {
         if (endConditionType === 'points' && (scoreLeft >= targetScore || scoreRight >= targetScore) ||
@@ -1470,6 +1454,8 @@ function handleGoal(scoringTeam, scoredBall) {
 function update(deltaTime) {
     if (playerUpgrades.boostRain && Math.random() < 0.001) { cars[0].refillBoost(30); showNotification("Boost Leak!"); }
     if (endConditionType === 'timed') gameTimer=Math.max(0,gameTimer-deltaTime);
+    
+    roundTime += deltaTime; // Track round time
    
     cars.forEach(car => { car.handleInput(deltaTime); car.move(deltaTime); });
     foreverBalls.forEach(ball => ball.move(deltaTime));
@@ -1512,24 +1498,119 @@ function gameLoop(currentTime) {
     if (gameState === 'playing' || gameState === 'paused' || gameState === 'finished') animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+function updateUI(){
+    const sLeft = document.getElementById('score-left');
+    const sRight = document.getElementById('score-right');
+    sLeft.textContent=`BLUE: ${scoreLeft}`;
+    sRight.textContent=`RED: ${scoreRight}`;
+
+    const foreverHud = document.getElementById('forever-hud');
+
+    if (endConditionType === 'points') {
+        document.getElementById('center-info').style.visibility = 'hidden';
+        if (scoreLeft > scoreRight) { sLeft.className='text-blue-400 score-large'; sRight.className='text-red-400 score-normal'; } 
+        else if (scoreRight > scoreLeft) { sRight.className='text-red-400 score-large'; sLeft.className='text-blue-400 score-normal'; } 
+        else { sLeft.className='text-blue-400 score-normal'; sRight.className='text-red-400 score-normal'; }
+        document.getElementById('ui-panel').classList.remove('hidden');
+        document.getElementById('forever-status-panel').classList.add('hidden');
+        foreverHud.classList.add('hidden');
+    } 
+    else if (endConditionType === 'timed') {
+        document.getElementById('center-info').style.visibility = 'visible';
+        let min=Math.floor(gameTimer/60), sec=Math.floor(gameTimer%60);
+        const timerEl = document.getElementById('timer');
+        timerEl.textContent=`${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+        document.getElementById('mode-info').textContent=`TIME`;
+        if (gameTimer <= 30) timerEl.classList.add('blink-active'); else timerEl.classList.remove('blink-active');
+        if (gameTimer <= 10) timerEl.classList.add('text-red-500'); else timerEl.classList.remove('text-red-500');
+        document.getElementById('ui-panel').classList.remove('hidden');
+        document.getElementById('forever-status-panel').classList.add('hidden');
+        foreverHud.classList.add('hidden');
+    } 
+    else if (endConditionType === 'forever'){
+        sLeft.className='text-blue-400 score-large'; sRight.className='text-red-400 score-large';
+        document.getElementById('center-info').style.visibility = 'visible';
+        document.getElementById('timer').textContent=`${playerLevel}`;
+        document.getElementById('mode-info').textContent=`PLAYER LEVEL`;
+        document.getElementById('player-level-display').textContent = playerLevel;
+        let numAI = getNumberOfAICars();
+        document.getElementById('ai-status').innerText = `LV ${aiDifficulty} (${numAI} Bot${numAI>1?'s':''})`;
+        if (playerLevel > 100) document.getElementById('ai-buff-text').classList.remove('hidden');
+        document.getElementById('ui-panel').classList.remove('hidden');
+        document.getElementById('forever-status-panel').classList.remove('hidden');
+        
+        // New HUD Updates
+        if (cars && cars[0]) {
+            foreverHud.classList.remove('hidden');
+            const p1 = cars[0];
+            
+            // Speed (Scaled to look like km/h)
+            const speedKm = Math.round(p1.speed * 18); 
+            const speedEl = document.getElementById('hud-speed');
+            speedEl.textContent = speedKm;
+            
+            // Color speed based on intensity
+            if (speedKm > 100) speedEl.className = 'text-purple-400 font-black text-6xl italic';
+            else if (speedKm > 60) speedEl.className = 'text-yellow-400 font-black text-6xl italic';
+            else speedEl.className = 'text-cyan-400 font-black text-6xl italic';
+
+            // Stats
+            document.getElementById('hud-boost-cap').textContent = p1.maxBoost >= 9999 ? '∞' : `${Math.round(p1.boost)}/${Math.round(p1.maxBoost)}`;
+            document.getElementById('hud-mass').textContent = p1.mass.toFixed(2) + 'x';
+            
+            // Power (Relative to base 0.3)
+            const powerPct = Math.round((p1.acceleration / 0.3) * 100);
+            document.getElementById('hud-accel').textContent = powerPct + '%';
+
+            // Grip (Side Friction x 1000 for readability)
+            const gripScore = Math.round(p1.sideFrictionFactor * 1000);
+            document.getElementById('hud-grip').textContent = gripScore;
+            
+            let fxHtml = '';
+            if(p1.effects.ghost) fxHtml += '<span class="px-2 py-1 bg-indigo-900 text-indigo-200 rounded border border-indigo-500">👻 GHOST</span>';
+            if(p1.effects.invincible) fxHtml += '<span class="px-2 py-1 bg-yellow-900 text-yellow-200 rounded border border-yellow-500">🛡️ SHIELD</span>';
+            if(p1.effects.slow) fxHtml += '<span class="px-2 py-1 bg-blue-900 text-blue-200 rounded border border-blue-500">❄️ SLOWED</span>';
+            document.getElementById('hud-effects').innerHTML = fxHtml;
+        }
+    }
+}
+
+function updateMenuSelectionUI(containerId, selectedIndex, type = 'menu') {
+    if (type === 'menu') selectedMenuIndex = selectedIndex; else selectedUpgradeIndex = selectedIndex;
+    let optionsToUpdate = (type === 'upgrade' && containerId) ? document.getElementById(containerId).children : menuOptions;
+    Array.from(optionsToUpdate).forEach((child, index) => {
+        child.classList.remove('menu-selected');
+        if (index === selectedIndex) child.classList.add('menu-selected');
+    });
+}
+
 // --- MENUS ---
 function drawMainMenu() {
     gameState = 'menu';
+    const overlay = document.getElementById('overlay');
     overlay.classList.add('visible'); 
-    document.getElementById('pause-btn').classList.add('hidden');
-    document.getElementById('fullscreen-btn').classList.add('hidden');
+    pauseBtn.classList.add('hidden');
+    fullscreenBtn.classList.add('hidden');
+    
+    let continueBtn = '';
+    if (savedForeverSession) {
+        continueBtn = `<div class="p-3 bg-green-600 rounded-lg hover:bg-green-500 clickable-option font-bold border-2 border-green-400" data-action="continue-forever">CONTINUE RUN (Lvl ${savedForeverSession.playerLevel})</div>`;
+    }
+
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-md pointer-events-auto">
-            <h1 class="text-5xl font-extrabold mb-8 text-yellow-400">2D ROCKET LEAGUE<br><span class="text-sm text-white">ULTIMATE EDITION</span></h1>
+            <h1 class="text-5xl font-extrabold mb-8 text-yellow-400">2D ROCKET LEAGUE<br><span class="text-sm text-white tracking-widest">MADE BY ERIC</span></h1>
             <div id="menu-options" class="space-y-4 text-xl">
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="select-mode-1v1">1v1 Multiplayer</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="select-mode-2v2">2v2 Multiplayer</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="select-mode-vs-computer">Vs Computer</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="play-online">Play Online</div>
+                ${continueBtn}
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-1v1">1v1 Multiplayer</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-2v2">2v2 Multiplayer</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-vs-computer">Vs Computer</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="play-online">Play Online</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="settings">Settings</div>
             </div>
         </div>
     `;
-    menuOptions = document.querySelectorAll('#menu-options [data-action]');
+    menuOptions = document.querySelectorAll('#menu-options .clickable-option');
     Array.from(menuOptions).forEach((option, index) => {
         option.addEventListener('click', () => handleMenuSelection(index));
         option.addEventListener('mouseenter', () => updateMenuSelectionUI(null, index, 'menu'));
@@ -1537,10 +1618,127 @@ function drawMainMenu() {
     selectedMenuIndex = 0; updateMenuSelectionUI(null, selectedMenuIndex, 'menu');
 }
 
+function drawSettingsMenu() {
+    gameState = 'menu'; 
+    const overlay = document.getElementById('overlay');
+    overlay.classList.add('visible');
+    const k = (p, action) => playerSettings.keybinds[p-1][action];
+    const originalSettings = JSON.parse(JSON.stringify(playerSettings));
+
+    overlay.innerHTML = `
+        <div class="text-center bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-4xl pointer-events-auto border border-gray-600 overflow-y-auto max-h-[90vh]">
+            <h1 class="text-3xl font-bold mb-4 text-white">Settings</h1>
+            <div class="flex flex-col md:flex-row gap-8 text-left">
+                <div class="flex-1 bg-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-yellow-400">Car Sensitivity</h2>
+                        <button id="reset-sens-btn" class="text-xs bg-red-600 hover:bg-red-500 px-2 py-1 rounded">Reset</button>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block mb-2">Rotation Speed: <span id="rot-val">${playerSettings.sensitivity.toFixed(1)}</span>x</label>
+                        <input type="range" min="0.5" max="3.0" step="0.1" value="${playerSettings.sensitivity}" class="w-full" id="rot-slider">
+                        <input type="number" min="0.5" max="3.0" step="0.1" value="${playerSettings.sensitivity}" class="w-full mt-2 bg-gray-900 border border-gray-600 rounded p-1" id="rot-input">
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-sm text-gray-400 mb-2">Test Area (Use A/D)</p>
+                        <canvas id="testCanvas" width="300" height="200" class="bg-gray-900 rounded border border-gray-600"></canvas>
+                    </div>
+                </div>
+                <div class="flex-1 bg-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-yellow-400">Controls</h2>
+                        <button id="reset-keys-btn" class="text-xs bg-red-600 hover:bg-red-500 px-2 py-1 rounded">Reset All</button>
+                    </div>
+                    <div class="flex space-x-2 mb-4 border-b border-gray-600 pb-2 overflow-x-auto">
+                        <button class="px-3 py-1 bg-blue-600 rounded text-sm tab-btn" data-tab="1">P1</button>
+                        <button class="px-3 py-1 bg-gray-600 rounded text-sm tab-btn" data-tab="2">P2</button>
+                        <button class="px-3 py-1 bg-gray-600 rounded text-sm tab-btn" data-tab="3">P3</button>
+                        <button class="px-3 py-1 bg-gray-600 rounded text-sm tab-btn" data-tab="4">P4</button>
+                    </div>
+                    <div id="keybind-container"></div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-center gap-4">
+                <button id="discard-settings-btn" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg">Discard & Close</button>
+                <button id="close-settings-btn" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg">Save & Close</button>
+            </div>
+        </div>
+    `;
+
+    const testC = document.getElementById('testCanvas');
+    const testCtx = testC.getContext('2d');
+    let testCarAngle = 0;
+    let testLoopId;
+    function runTestLoop() {
+        if(!document.getElementById('testCanvas')) return;
+        testCtx.clearRect(0,0,300,200);
+        testCtx.fillStyle = '#111827'; testCtx.fillRect(0,0,300,200);
+        let rotSpeed = 4.5 * playerSettings.sensitivity;
+        if(keys['KeyA']) testCarAngle = (testCarAngle + rotSpeed) % 360;
+        if(keys['KeyD']) testCarAngle = (testCarAngle - rotSpeed) % 360;
+        testCtx.save(); testCtx.translate(150, 100); testCtx.rotate(-Math.PI * testCarAngle / 180);
+        testCtx.fillStyle = '#0066cc'; testCtx.beginPath(); testCtx.roundRect(-25, -12.5, 50, 25, 4); testCtx.fill();
+        testCtx.fillStyle = 'yellow'; testCtx.beginPath(); testCtx.roundRect(25-10, -12.5+5, 8, 15, 2); testCtx.fill();
+        testCtx.restore();
+        testLoopId = requestAnimationFrame(runTestLoop);
+    }
+    runTestLoop();
+
+    const slider = document.getElementById('rot-slider');
+    const input = document.getElementById('rot-input');
+    const valDisplay = document.getElementById('rot-val');
+    function updateSens(v) {
+        playerSettings.sensitivity = parseFloat(v);
+        slider.value = v; input.value = v; valDisplay.innerText = parseFloat(v).toFixed(1);
+    }
+    slider.oninput = (e) => updateSens(e.target.value);
+    input.onchange = (e) => updateSens(e.target.value);
+    document.getElementById('reset-sens-btn').onclick = () => updateSens(1.0);
+
+    let activeTab = 1;
+    const container = document.getElementById('keybind-container');
+    const tabs = document.querySelectorAll('.tab-btn');
+    function renderKeybinds(pid) {
+        activeTab = pid;
+        tabs.forEach(t => t.classList.replace('bg-blue-600', 'bg-gray-600'));
+        document.querySelector(`.tab-btn[data-tab="${pid}"]`).classList.replace('bg-gray-600', 'bg-blue-600');
+        const binds = playerSettings.keybinds[pid-1];
+        container.innerHTML = Object.entries(binds).map(([action, key]) => `
+            <div class="flex justify-between items-center mb-2 bg-gray-900 p-2 rounded">
+                <span class="capitalize font-bold text-gray-300">${action}</span>
+                <button class="key-bind-btn px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm font-mono min-w-[80px]" data-p="${pid}" data-a="${action}">${key}</button>
+            </div>
+        `).join('');
+        document.querySelectorAll('.key-bind-btn').forEach(btn => {
+            btn.onclick = () => {
+                btn.innerText = '...'; btn.classList.add('bg-yellow-600');
+                const handler = (e) => {
+                    e.preventDefault(); const code = e.code;
+                    playerSettings.keybinds[pid-1][btn.dataset.a] = code;
+                    renderKeybinds(pid); window.removeEventListener('keydown', handler);
+                };
+                window.addEventListener('keydown', handler, {once:true});
+            };
+        });
+    }
+    tabs.forEach(t => t.onclick = () => renderKeybinds(parseInt(t.dataset.tab)));
+    renderKeybinds(1);
+
+    document.getElementById('reset-keys-btn').onclick = () => {
+        playerSettings.keybinds = JSON.parse(JSON.stringify(defaultKeybinds));
+        renderKeybinds(activeTab);
+    };
+    document.getElementById('close-settings-btn').onclick = () => { cancelAnimationFrame(testLoopId); drawMainMenu(); };
+    document.getElementById('discard-settings-btn').onclick = () => {
+        playerSettings = JSON.parse(JSON.stringify(originalSettings)); cancelAnimationFrame(testLoopId); drawMainMenu();
+    };
+}
+
 function drawGameSettingsMenu(mode) {
+    const overlay = document.getElementById('overlay');
     let foreverModeOption = mode === 'Vs Computer' ? `
         <h2 class="text-2xl font-bold mb-3 text-white mt-6">Challenge Mode</h2>
-        <div class="flex justify-center gap-4 mb-6"><div class="p-3 bg-cyan-600 rounded-lg hover:bg-cyan-500" data-action="start-forever">Start FOREVER MODE</div></div>
+        <div class="flex justify-center gap-4 mb-6"><div class="p-3 bg-cyan-600 rounded-lg hover:bg-cyan-500 clickable-option" data-action="start-forever">Start FOREVER MODE</div></div>
     ` : '';
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-lg pointer-events-auto">
@@ -1548,24 +1746,24 @@ function drawGameSettingsMenu(mode) {
             <div id="menu-options">
                 <h2 class="text-2xl font-bold mb-3 text-white">Time Limit</h2>
                 <div class="flex justify-center gap-4 mb-6">
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-timed-1">1 Min</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-timed-2">2 Min</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-timed-5">5 Min</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-timed-1">1 Min</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-timed-2">2 Min</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-timed-5">5 Min</div>
                 </div>
                 <h2 class="text-2xl font-bold mb-3 text-white">Score Limit</h2>
                 <div class="flex justify-center gap-4 mb-6">
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-points-3">3 Pts</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-points-5">5 Pts</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="start-points-10">10 Pts</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-points-3">3 Pts</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-points-5">5 Pts</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="start-points-10">10 Pts</div>
                 </div>
                 ${foreverModeOption}
                 <hr class="border-gray-500 my-6">
-                <div><div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="main-menu">Back</div></div>
+                <div><div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="main-menu">Back</div></div>
             </div>
         </div>
     `;
     window.currentGameModeSelection = mode;
-    menuOptions = document.querySelectorAll('#menu-options [data-action]');
+    menuOptions = document.querySelectorAll('#menu-options .clickable-option');
     menuOptions.forEach((option, index) => {
         option.addEventListener('click', () => handleMenuSelection(index));
         option.addEventListener('mouseenter', () => updateMenuSelectionUI(null, index, 'menu'));
@@ -1574,11 +1772,24 @@ function drawGameSettingsMenu(mode) {
 }
 
 function drawUpgradeMenu() {
+    const overlay = document.getElementById('overlay');
     overlay.classList.add('visible'); 
     drawField(); cars.forEach(car => car.draw()); foreverBalls.forEach(ball => ball.draw());
+    
+    const chances = currentTierChances;
+    const tierText = `
+        <div class="flex justify-center gap-4 mb-4 text-sm font-mono">
+            <span class="text-[#fed7aa]">Bronze: ${Math.round(chances.bronze)}%</span>
+            <span class="text-[#e5e7eb]">Silver: ${Math.round(chances.silver)}%</span>
+            <span class="text-[#fef08a]">Gold: ${Math.round(chances.gold)}%</span>
+            <span class="text-[#c7d2fe]">Plat: ${Math.round(chances.platinum)}%</span>
+        </div>
+    `;
+
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-5xl pointer-events-auto">
             <h1 class="text-4xl font-extrabold mb-2 text-green-400">LEVEL UP! (Lvl ${playerLevel})</h1>
+            ${tierText}
             <div id="upgrade-options" class="flex flex-wrap justify-center gap-6 mt-4">
                 ${upgradeOptions.map((opt, index) => `
                     <div id="upgrade-${index}" data-index="${index}" class="upgrade-option-card p-4 rounded-xl w-64 text-left shadow-lg border-2 border-transparent bg-gray-600 hover:bg-gray-500 ability-level-${opt.tier}">
@@ -1602,19 +1813,24 @@ function drawUpgradeMenu() {
 }
 
 function drawGameOver(reason = null) {
+    const overlay = document.getElementById('overlay');
     pauseBtn.classList.add('hidden');
-    document.getElementById('fullscreen-btn').classList.add('hidden');
+    fullscreenBtn.classList.add('hidden');
     overlay.classList.add('visible'); 
     let message = reason === 'ai_won' ? 'YOU LOSE!' : (scoreLeft > scoreRight ? 'BLUE TEAM WINS!' : (scoreRight > scoreLeft ? 'RED TEAM WINS!' : 'DRAW!'));
     let color = reason === 'ai_won' ? 'text-red-400' : 'text-yellow-300';
+    
+    // Clear save if game over in forever mode
+    if (endConditionType === 'forever') savedForeverSession = null;
+
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-md pointer-events-auto">
             <h1 class="text-5xl font-extrabold mb-4 text-pink-400">GAME OVER</h1>
             <p class="text-3xl font-bold mb-6 ${color}">${message}</p>
             <p class="text-xl text-gray-300 mb-6">Level: ${playerLevel} | Score: ${scoreLeft}-${scoreRight}</p>
             <div id="menu-options" class="space-y-4 text-xl">
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="restart">Play Again</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="main-menu">Main Menu</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="restart">Play Again</div>
+                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="main-menu">Main Menu</div>
             </div>
         </div>
     `;
@@ -1626,28 +1842,23 @@ function drawGameOver(reason = null) {
     selectedMenuIndex = 0; updateMenuSelectionUI('menu-options', selectedMenuIndex);
 }
 
-function updateMenuSelectionUI(containerId, selectedIndex, type = 'menu') {
-    if (type === 'menu') selectedMenuIndex = selectedIndex; else selectedUpgradeIndex = selectedIndex;
-    let optionsToUpdate = (type === 'upgrade' && containerId) ? document.getElementById(containerId).children : menuOptions;
-    Array.from(optionsToUpdate).forEach((child, index) => {
-        child.classList.remove('menu-selected');
-        if (index === selectedIndex) child.classList.add('menu-selected');
-    });
-}
-
 function handleMenuSelection(index) {
     if (!menuOptions[index]) return;
     const selection = menuOptions[index].getAttribute('data-action');
     const mode = window.currentGameModeSelection;
+    const overlay = document.getElementById('overlay');
     
     if (selection.includes('select-mode')) drawGameSettingsMenu(selection.replace('select-mode-', '').replace('vs-computer', 'Vs Computer').replace('1v1', '1v1 Multiplayer').replace('2v2', '2v2 Multiplayer'));
     else if (selection === 'start-forever') startGame('Vs Computer', 'forever');
+    else if (selection === 'continue-forever') startGame('Vs Computer', 'forever', true);
     else if (selection.includes('start-timed')) { timeLimitSeconds = parseInt(selection.split('-')[2])*60; startGame(mode, 'timed'); }
     else if (selection.includes('start-points')) { targetScore = parseInt(selection.split('-')[2]); startGame(mode, 'points'); }
     else if (selection === 'play-online') window.location.href = "https://ccpspy.github.io/onlinecargame";
     else if (selection === 'restart') startGame(gameMode, endConditionType);
     else if (selection === 'main-menu') drawMainMenu();
     else if (selection === 'resume') togglePause();
+    else if (selection === 'settings') drawSettingsMenu();
+    else if (selection === 'save-exit') saveForeverProgress();
 }
 
 function handleUpgradeSelection(index) {
@@ -1659,21 +1870,73 @@ function handleUpgradeSelection(index) {
     } else { applyUpgrade(upgrade); exitUpgradePicker(); }
 }
 
-function startGame(mode, endType='timed') {
+function startGame(mode, endType='timed', loadSave = false) {
     gameMode = mode; endConditionType = endType; scoreLeft = 0; scoreRight = 0; aiDifficulty = 1;
+    const overlay = document.getElementById('overlay');
+    
     if(endType === 'forever') {
-        timeLimitSeconds = 99999; targetScore = 999; playerLevel = 0; playerUpgrades = {}; playerAbilities = []; pendingUpgradePick = false;
+        if (loadSave && savedForeverSession) {
+            // Load Save Data
+            const s = savedForeverSession;
+            playerLevel = s.playerLevel;
+            scoreLeft = s.scoreLeft;
+            scoreRight = s.scoreRight;
+            aiDifficulty = s.aiDifficulty;
+            playerUpgrades = JSON.parse(JSON.stringify(s.playerUpgrades));
+            playerAbilities = JSON.parse(JSON.stringify(s.playerAbilities));
+            extraUpgradePicks = s.extraUpgradePicks;
+            timeLimitSeconds = 99999; targetScore = 999;
+            pendingUpgradePick = false;
+        } else {
+            // New Game
+            timeLimitSeconds = 99999; targetScore = 999; playerLevel = 0; playerUpgrades = {}; playerAbilities = []; pendingUpgradePick = false;
+        }
     } else {
         playerUpgrades = {}; playerAbilities = [];
     }
+    
     gameTimer = timeLimitSeconds;
+    roundTime = 0; // Reset round timer on start
+    
+    // Setup Logic
     setupGameObjects(mode, (mode === 'Vs Computer' ? 1 : 0));
+    
+    if (loadSave && endType === 'forever') {
+        // Re-apply spawn logic for loaded upgrades (since setupGameObjects only does base cars)
+        if (playerUpgrades['miniRobot'] || playerUpgrades['miniRobot_evo']) {
+             let pId = 1001;
+             if (!cars.some(c => c.playerId === pId)) addFriendlyAICar(pId, 'attacker', playerUpgrades['miniRobot_evo'] ? 2.0 : 1.5);
+        }
+        if (playerUpgrades['smolRobot']) {
+             let pId = 1002;
+             if (!cars.some(c => c.playerId === pId)) addFriendlyAICar(pId, 'defender', 1.0);
+        }
+        if ((playerUpgrades['autoGoalie'] || playerUpgrades['autoGoalie_evo']) && !goaliePad) { 
+            goaliePad = new GoaliePad(); 
+            if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
+        }
+        if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
+            boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35));
+            boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65));
+        }
+        // Apply difficulty to pre-spawned AI
+        cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
+        
+        // Add extra AI if difficulty warrants it (simple check)
+        if (playerLevel >= 15 && getNumberOfAICars() < 2) addEnemyAICar();
+        if (playerLevel >= 30 && getNumberOfAICars() < 3) addEnemyAICar();
+    }
+
     updateUI(); updateUpgradesDisplay();
     
-    if (endType === 'forever') { gameState = 'upgrading'; overlay.classList.remove('visible'); requestUpgradePicker(); }
-    else {
-        gameState = 'playing'; overlay.classList.remove('visible'); pauseBtn.classList.remove('hidden');
-        document.getElementById('fullscreen-btn').classList.remove('hidden');
+    if (endType === 'forever' && !loadSave) { 
+        gameState = 'upgrading'; overlay.classList.remove('visible'); overlay.innerHTML = ''; requestUpgradePicker(); 
+    } else {
+        gameState = 'playing'; 
+        overlay.classList.remove('visible'); 
+        overlay.innerHTML = ''; 
+        pauseBtn.classList.remove('hidden');
+        fullscreenBtn.classList.remove('hidden');
         lastTime = performance.now();
         if (animationFrameId) cancelAnimationFrame(animationFrameId); 
         animationFrameId = requestAnimationFrame(gameLoop);
@@ -1681,15 +1944,22 @@ function startGame(mode, endType='timed') {
 }
 
 function togglePause() {
+    const overlay = document.getElementById('overlay');
     if (gameState === 'playing') {
         gameState = 'paused'; pauseBtn.innerHTML = '<span class="mr-2">▶️</span> Resume (P)'; overlay.classList.add('visible');
+        
+        let exitButton = '<div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="main-menu">Main Menu</div>';
+        if (endConditionType === 'forever') {
+            exitButton = '<div class="p-3 bg-purple-600 rounded-lg hover:bg-purple-500 clickable-option border-2 border-purple-400 font-bold" data-action="save-exit">Save & Exit</div>';
+        }
+
         overlay.innerHTML = `
             <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-md pointer-events-auto">
                 <h1 class="text-5xl font-extrabold mb-8 text-red-400">PAUSED</h1>
                 <div id="menu-options" class="space-y-4 text-xl">
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="resume">Resume</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="restart">Restart</div>
-                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500" data-action="main-menu">Main Menu</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="resume">Resume</div>
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="restart">Restart</div>
+                    ${exitButton}
                 </div>
             </div>
         `;
@@ -1700,8 +1970,9 @@ function togglePause() {
         });
         selectedMenuIndex = 0; updateMenuSelectionUI('menu-options', selectedMenuIndex);
     } else if (gameState === 'paused') {
-        gameState = 'playing'; overlay.classList.remove('visible'); pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
-        lastTime = performance.now(); animationFrameId = requestAnimationFrame(gameLoop);
+        gameState = 'playing'; overlay.classList.remove('visible'); overlay.innerHTML = ''; pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
+        lastTime = performance.now();
+        animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
 
@@ -1716,8 +1987,11 @@ document.addEventListener('fullscreenchange', () => {
     else { gc.classList.remove('fullscreen-active'); document.body.classList.remove('fullscreen-active'); fullscreenBtn.innerHTML = '📺 Fullscreen'; }
 });
 fullscreenBtn.addEventListener('click', toggleFullScreen);
+pauseBtn.addEventListener('click', togglePause);
 
 window.addEventListener('keydown', (e) => {
+    if(e.target.tagName === 'INPUT') return;
+    
     keys[e.code] = true;
     if (gameState === 'menu' || gameState === 'paused' || gameState === 'finished') {
         if (e.code === 'ArrowDown') selectedMenuIndex = (selectedMenuIndex + 1) % menuOptions.length;
