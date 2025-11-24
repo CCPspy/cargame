@@ -695,6 +695,9 @@ class Car {
         this.stuckThresholdDist = 60 + Math.random() * 30;
        
         this.aiPredictionLead = 0; // Intelligence Factor
+        
+        // Initial Rotation Speed Set
+        this.rotationSpeed = this.baseRotationSpeed;
 
         this.updateDifficulty(difficulty);
         this.resetPos={x,y,angle:initial_angle};
@@ -705,7 +708,10 @@ class Car {
         if (this.ai) {
             this.acceleration = this.baseAcceleration + 0.05 * (difficulty-1);
             this.maxBoost = 100 + 10 * (difficulty-1);
+            
+            // Fix: Reset rotation speed to base for AI, ignoring player sensitivity
             this.rotationSpeed = this.baseRotationSpeed;
+            
             this.sideFrictionFactor = this.baseSideFrictionFactor;
             this.mass = 1.0;
             this.repelField = false;
@@ -772,6 +778,7 @@ class Car {
         let hasEvo = (id) => !!upgrades[id+'_evo'];
 
         this.acceleration = this.baseAcceleration * (1 + count('accel') * (hasEvo('accel')?0.30:0.15));
+        // Fix: Explicitly double check player sensitivity application
         this.rotationSpeed = this.baseRotationSpeed * playerSettings.sensitivity * (1 + count('turn') * (hasEvo('turn')?0.3:0.15));
         this.maxBoost = 100 + count('maxBoost') * (hasEvo('maxBoost')?50:20);
         
@@ -2166,9 +2173,14 @@ function togglePause() {
         });
         selectedMenuIndex = 0; updateMenuSelectionUI('menu-options', selectedMenuIndex);
     } else if (gameState === 'paused') {
-        gameState = 'playing'; overlay.classList.remove('visible'); overlay.innerHTML = ''; pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
-        lastTime = performance.now();
-        animationFrameId = requestAnimationFrame(gameLoop);
+        gameState = 'playing'; 
+        overlay.classList.remove('visible'); 
+        overlay.innerHTML = ''; 
+        pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
+        
+        // FIX: Do NOT start a new animation frame loop here. 
+        // The game loop keeps running in the background even when paused (to draw paused state).
+        // By setting gameState to 'playing', the existing loop will resume logic updates on the next frame.
     }
 }
 
