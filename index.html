@@ -294,12 +294,12 @@ const BRONZE_UPGRADES = [
     {id:'turn',label:'Power Steering',icon:'🌀',desc:'Rotation speed +15%.',tier:'bronze'},
     {id:'maxBoost',label:'Extra Fuel',icon:'⛽',desc:'Boost capacity +20.',tier:'bronze'},
     {id:'boostRegen',label:'Hybrid Engine',icon:'🔋',desc:'Pad refill +8.',tier:'bronze'},
-    {id:'frictionFix',label:'Grip Tires',icon:'🦶',desc:'Reduces drift by 15%.',tier:'bronze'},
+    {id:'frictionFix',label:'Grip Tires',icon:'🦶',desc:'Increases grip, reducing drift.',tier:'bronze'},
     {id:'speed',label:'Top Gear',icon:'🚀',desc:'Top speed +5%.',tier:'bronze'},
     {id:'brake',label:'Ceramic Brakes',icon:'🅿️',desc:'Braking force +50%.',tier:'bronze'},
     {id:'kick',label:'Steel Bumper',icon:'🦵',desc:'Ball hit knockback +25%.',tier:'bronze'},
     {id:'stickTires',label:'Sticky Tires',icon:'🧲',desc:'Reduces your recoil when hitting ball.',tier:'bronze'},
-    {id:'extraBoostPad',label:'Field Supply',icon:'✨',desc:'Bonus boost pad on field.',tier:'bronze', permanent:true},
+    {id:'extraBoostPad',label:'Field Supply',icon:'✨',desc:'Spawns a HIGH POWER boost pad.',tier:'bronze', permanent:true},
     {id:'bigCar',label:'Heavy Frame',icon:'🚚',desc:'Size +10%, Mass +10%.',tier:'bronze'},
     {id:'slipStream',label:'Drafting',icon:'💨',desc:'Gain boost when near AI.',tier:'bronze'},
     {id:'reverseKing',label:'Reverse King',icon:'🔙',desc:'Drive backwards 50% faster.',tier:'bronze'},
@@ -331,7 +331,7 @@ const GOLD_UPGRADES = [
     {id:'rerollPlus',label:'Lucky Dice',icon:'🎲',desc:'Unlimited rerolls for this pick.',tier:'gold'},
     {id:'aiSlow',label:'System Hack',icon:'🐢',desc:'AI speed -50% for 5s after you score.',tier:'gold'},
     {id:'timeFreeze',label:'Time Stop',icon:'⏱️',desc:'Freeze AI for 2s when you score.',tier:'gold'},
-    {id:'freePad',label:'Mana Farm',icon:'🍀',desc:'Bonus boost pad spawns on enemy goal.',tier:'gold'},
+    {id:'freePad',label:'Mana Farm',icon:'🍀',desc:'Spawns a HIGH POWER boost pad on enemy goal.',tier:'gold'},
     {id:'ballSplit',label:'Multiball',icon:'🎱',desc:'Scoring splits the ball (Max 5).',tier:'gold'},
     {id:'goalBlock',label:'Force Field',icon:'🚧',desc:'Your goal blocked for 5s after score.',tier:'gold'},
     {id:'gravityWell',label:'Gravity Well',icon:'🌌',desc:'Passive pull on ball towards enemy goal.',tier:'gold'},
@@ -353,7 +353,7 @@ const EVOLUTIONS = {
     'kick': {id:'kick_evo', label:'Titanium Bumper', icon:'🦵💎', desc:'Ball hit knockback +25%.', tier:'bronze-evo'},
     'bigCar': {id:'bigCar_evo', label:'Giga Frame', icon:'🚚🦖', desc:'Size +20%, Mass +25%.', tier:'bronze-evo'},
     'boostRegen': {id:'boostRegen_evo', label:'Fusion Core', icon:'🔋⚛️', desc:'Pad refill +15.', tier:'bronze-evo'},
-    'frictionFix': {id:'frictionFix_evo', label:'Spider Tires', icon:'🦶🕷️', desc:'Zero drift.', tier:'bronze-evo'},
+    'frictionFix': {id:'frictionFix_evo', label:'Spider Tires', icon:'🦶🕷️', desc:'Zero drift (Max Grip).', tier:'bronze-evo'},
     'brake': {id:'brake_evo', label:'Anchor Brakes', icon:'🅿️⚓', desc:'Instant stop.', tier:'bronze-evo'},
     'stickTires': {id:'stickTires_evo', label:'Glue Tires', icon:'🧲🧴', desc:'Zero recoil.', tier:'bronze-evo'},
     'slipStream': {id:'slipStream_evo', label:'Jetstream', icon:'💨✈️', desc:'Gain massive boost near AI.', tier:'bronze-evo'},
@@ -602,9 +602,16 @@ function applyUpgrade(ability) {
         goaliePad = new GoaliePad(); 
         if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
     }
+    // Updated Logic for Special Boost Pads
     if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
-        boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35));
-        boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65));
+        // Spawns 2 Special Pads
+        boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
+        boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
+    }
+    if (playerUpgrades.freePad && boostPads.length < 12) { // Logic to prevent unlimited spawning if function called repeatedly
+         // Check if we already have the center pad
+         let hasCenter = boostPads.some(p => Math.abs(p.x - canvas.width/2) < 5 && Math.abs(p.y - canvas.height/2) < 5);
+         if(!hasCenter) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20, true));
     }
     
     updateUpgradesDisplay();
@@ -785,25 +792,25 @@ class Car {
         let aeroFactor = count('aerodynamics') * 0.1; 
         this.baseMaxSpeed = 5.0 * (1 + count('speed') * (hasEvo('speed')?0.15:0.05) + aeroFactor);
         
-        let frictionFactor = 1 - count('frictionFix') * (hasEvo('frictionFix')?1.0:0.15);
-        this.sideFrictionFactor = this.baseSideFrictionFactor * Math.max(0.0, frictionFactor);
+        // --- FIXED GRIP LOGIC ---
+        // Friction reduces side slip. Higher friction = More Grip.
+        // Base is 0.05. We add to it to increase grip.
+        let gripBonus = count('frictionFix') * 0.05; // Adds 0.05 per stack (doubles grip effectively)
+        if (hasEvo('frictionFix')) gripBonus = 1.0; // Max Grip
+        this.sideFrictionFactor = Math.min(1.0, this.baseSideFrictionFactor + gripBonus);
        
-        // Mass & Size Calculations (Important for HUD)
+        // --- FIXED MASS LOGIC ---
+        // Base mass 1.0. Additive multipliers.
+        let massAdd = 0;
+        if (count('heavyDuty') > 0) massAdd += (0.25 * count('heavyDuty')); // 1 -> 1.25 -> 1.50 -> 1.75
+        if (hasEvo('bigCar')) massAdd += 0.25; 
+        else if (count('bigCar') > 0) massAdd += 0.10;
+
+        this.mass = 1.0 + massAdd;
+
+        // Size Logic
         this.sizeMultiplier = 1.0; 
-        let sizeBuff = 1.0;
-        if (count('bigCar') > 0) sizeBuff *= (hasEvo('bigCar')?1.20:1.10);
-        this.sizeMultiplier *= sizeBuff;
-
-        let massBuff = 1.0;
-        if (count('heavyDuty') > 0) massBuff *= 1.25; 
-        if (hasEvo('bigCar')) massBuff *= 1.25; 
-        // Cumulative upgrades?
-        // If I have 2 heavyDuty, is it 1.25 * 1.25 or 1 + 0.25*2? Usually additive percent is safer for game balance but user asked for changes.
-        // Current logic: 'heavyDuty' count > 0 gives 1.25x. 
-        // Fixing to scale with count:
-        if (count('heavyDuty') > 0) massBuff *= (1 + 0.25 * count('heavyDuty'));
-
-        this.mass = 1.0 * massBuff;
+        if (count('bigCar') > 0) this.sizeMultiplier += (hasEvo('bigCar') ? 0.20 : 0.10);
 
         this.widthMultiplier = count('wideBody') ? 1.3 : 1.0;
         this.lengthMultiplier = count('longBody') ? 1.3 : 1.0;
@@ -1328,14 +1335,23 @@ class Ball {
 }
 
 class BoostPad {
-    constructor(x,y,radius=12){ this.x=x;this.y=y;this.radius=radius; this.active = true; this.cooldownTimer = 0; }
+    constructor(x,y,radius=12, isSpecial=false){ 
+        this.x=x; this.y=y; this.radius=radius; 
+        this.isSpecial=isSpecial; // New Property
+        this.active = true; this.cooldownTimer = 0; 
+    }
     update(deltaTime) { if (!this.active) { this.cooldownTimer -= deltaTime; if (this.cooldownTimer <= 0) this.active = true; } }
     draw() {
         ctx.save();
         if (!this.active) ctx.globalAlpha = 0.3; 
-        ctx.strokeStyle="#fbbf24"; ctx.lineWidth=3;
+        
+        // Color Logic: Special pads are Purple (Fuchsia), Normal are Gold
+        let outerColor = this.isSpecial ? "#d946ef" : "#fbbf24"; 
+        let innerColor = this.isSpecial ? "#a21caf" : "#f59e42";
+
+        ctx.strokeStyle = outerColor; ctx.lineWidth=3;
         ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.stroke();
-        ctx.fillStyle="#f59e42"; ctx.beginPath(); ctx.arc(this.x,this.y,this.radius-7,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = innerColor; ctx.beginPath(); ctx.arc(this.x,this.y,this.radius-7,0,Math.PI*2); ctx.fill();
         ctx.restore();
     }
     checkCollision(car){
@@ -1345,7 +1361,10 @@ class BoostPad {
     consume(car) {
         if (!this.active) return;
         this.active = false; this.cooldownTimer = 3.0;
-        let refill = 25 + (playerUpgrades.boostRegen ? 8 : 0) + (playerUpgrades.boostRegen_evo ? 15 : 0);
+        
+        // Base refill is 25. Special is 50.
+        let baseRefill = this.isSpecial ? 50 : 25;
+        let refill = baseRefill + (playerUpgrades.boostRegen ? 8 : 0) + (playerUpgrades.boostRegen_evo ? 15 : 0);
         car.refillBoost(refill);
     }
 }
@@ -1460,11 +1479,12 @@ function setupGameObjects(mode,initialAICount=1){
         new BoostPad(canvas.width*0.1,canvas.height*0.12), new BoostPad(canvas.width*0.9,canvas.height*0.12),
         new BoostPad(canvas.width*0.1,canvas.height*0.88), new BoostPad(canvas.width*0.9,canvas.height*0.88),
     ];
+    // Re-apply special pads if upgrades persist on setup
     if(playerUpgrades.extraBoostPad) {
-        boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35));
-        boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65));
+        boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
+        boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
     }
-    if(playerUpgrades.freePad) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20));
+    if(playerUpgrades.freePad) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20, true));
 }
 
 function checkCarBallCollision(car, ball){
@@ -1591,7 +1611,7 @@ function handleGoal(scoringTeam, scoredBall) {
     }
     else if (scoringTeam === 'right') { 
         scoreRight += scoredBall.pointType;
-        if (playerUpgrades.freePad) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20));
+        if (playerUpgrades.freePad) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20, true));
         if (endConditionType === 'forever' && scoreRight >= scoreLeft + 5) {
              gameState = 'finished'; drawGameOver('ai_won'); return;
         }
@@ -2118,9 +2138,10 @@ function startGame(mode, endType='timed', loadSave = false) {
             goaliePad = new GoaliePad(); 
             if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
         }
+        // Special Pads Logic for Loaded Game
         if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
-            boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35));
-            boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65));
+            boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
+            boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
         }
         // Apply difficulty to pre-spawned AI
         cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
