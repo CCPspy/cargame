@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>2D Rocket League - Ultimate Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -17,6 +17,7 @@
             margin: 0;
             padding: 1rem;
             overflow-y: auto;
+            touch-action: none; /* Prevent browser zooming/scrolling */
         }
         
         body.fullscreen-active { padding: 0; overflow: hidden; }
@@ -32,6 +33,7 @@
             align-items: center;
             background-color: #1f2937;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         #game-container.fullscreen-active {
@@ -49,7 +51,7 @@
             flex-grow: 1; height: 0; min-height: 0; margin: 10px 0;
         }
 
-        #canvas-wrapper { position: relative; width: 1000px; height: 600px; }
+        #canvas-wrapper { position: relative; width: 1000px; height: 600px; touch-action: none; }
 
         #game-container.fullscreen-active #canvas-wrapper {
             width: auto; height: auto; max-width: 100%; max-height: 100%;
@@ -72,6 +74,66 @@
         #overlay.visible { opacity: 1; pointer-events: auto; }
 
         #ui-panel, #forever-status-panel, #forever-hud { flex-shrink: 0; width: 100%; max-width: 1000px; }
+
+        /* Mobile specific HUD adjustments */
+        body.mobile-mode #forever-hud {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.5rem;
+        }
+        body.mobile-mode #forever-hud > div:first-child {
+            grid-column: span 2;
+            border-right: none;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        body.mobile-mode #forever-hud .text-5xl { font-size: 2rem; }
+        body.mobile-mode #forever-hud .text-6xl { font-size: 2.5rem; }
+        body.mobile-mode .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+        
+        /* Touch Controls */
+        .touch-layer {
+            position: absolute; inset: 0; pointer-events: none; z-index: 40;
+            display: none;
+        }
+        body.mobile-mode .touch-layer { display: block; }
+        
+        .touch-control {
+            position: absolute; pointer-events: auto;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%; backdrop-filter: blur(2px);
+            touch-action: none; display: flex; justify-content: center; align-items: center;
+        }
+        
+        .joystick-base {
+            width: 120px; height: 120px;
+            bottom: 30px; left: 30px;
+        }
+        .joystick-stick {
+            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%; pointer-events: none;
+            transform: translate(0px, 0px);
+        }
+        
+        .action-btn {
+            width: 80px; height: 80px; bottom: 40px; right: 40px;
+            background: rgba(59, 130, 246, 0.3); border-color: rgba(59, 130, 246, 0.5);
+            font-weight: 900; color: rgba(255,255,255,0.8); font-size: 14px;
+        }
+        .action-btn:active { background: rgba(59, 130, 246, 0.6); }
+
+        .teleport-btn {
+            width: 60px; height: 60px; bottom: 140px; right: 50px;
+            background: rgba(168, 85, 247, 0.3); border-color: rgba(168, 85, 247, 0.5);
+            display: none; /* Hidden by default */
+        }
+        .teleport-btn.visible { display: flex; }
+
+        /* 1v1 specific controls layout */
+        .p1-controls { bottom: 20px; left: 20px; }
+        .p2-controls { bottom: 20px; right: 20px; }
+        .side-btn { width: 60px; height: 60px; margin: 5px; }
 
         .menu-selected {
             border: 3px solid #fcd34d;
@@ -119,9 +181,25 @@
         
         .score-large { font-size: 2rem; transition: font-size 0.3s; }
         .score-normal { font-size: 1.25rem; transition: font-size 0.3s; }
+
+        /* Mode Toggle Button */
+        #mode-toggle-btn {
+            position: fixed; top: 10px; right: 10px; z-index: 100;
+            background: #2563eb; color: white; border: 2px solid #60a5fa;
+            border-radius: 8px; padding: 8px 16px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer;
+            transition: all 0.2s;
+        }
+        #mode-toggle-btn.mobile-active { background: #ec4899; border-color: #f472b6; }
+        #mode-toggle-btn:hover { transform: scale(1.05); }
+
     </style>
 </head>
 <body class="bg-gray-900 text-white">
+
+<button id="mode-toggle-btn" onclick="toggleMobileMode()">
+    💻 PC Mode
+</button>
 
 <div id="game-container" class="p-4 sm:p-6 lg:p-8">
     <div id="top-bar" class="w-full mb-2 flex justify-end space-x-2 shrink-0 max-w-[1000px]">
@@ -138,6 +216,38 @@
     <div id="game-viewport">
         <div id="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
+            
+            <!-- Mobile Touch Controls Layer -->
+            <div id="touch-controls" class="touch-layer">
+                <!-- Vs Computer / Standard Layout -->
+                <div id="single-player-controls" class="w-full h-full relative">
+                    <div id="joystick-left" class="touch-control joystick-base">
+                        <div class="joystick-stick"></div>
+                    </div>
+                    <div id="btn-boost" class="touch-control action-btn">BOOST</div>
+                    <div id="btn-teleport" class="touch-control action-btn teleport-btn">WARP</div>
+                </div>
+
+                <!-- 1v1 Split Layout -->
+                <div id="split-player-controls" class="w-full h-full relative hidden">
+                    <!-- Player 1 (Left) -->
+                    <div class="absolute bottom-4 left-4 flex flex-col items-center">
+                         <div id="p1-joystick" class="touch-control joystick-base" style="position:relative; left:0; bottom:0; width:100px; height:100px;">
+                            <div class="joystick-stick" style="width:40px; height:40px;"></div>
+                         </div>
+                         <div id="p1-boost" class="touch-control action-btn" style="position:relative; right:0; bottom:0; width:60px; height:60px; margin-top:10px; background:rgba(59,130,246,0.4);">BST</div>
+                    </div>
+
+                    <!-- Player 2 (Right) -->
+                    <div class="absolute bottom-4 right-4 flex flex-col items-center">
+                         <div id="p2-joystick" class="touch-control joystick-base" style="position:relative; left:0; bottom:0; width:100px; height:100px;">
+                            <div class="joystick-stick" style="width:40px; height:40px;"></div>
+                         </div>
+                         <div id="p2-boost" class="touch-control action-btn" style="position:relative; right:0; bottom:0; width:60px; height:60px; margin-top:10px; background:rgba(239,68,68,0.4);">BST</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="overlay"></div>
             <div id="notifications"></div>
         </div>
@@ -235,6 +345,9 @@ const COLOR_BLUE = '#0066cc';
 const COLOR_RED = '#cc0000';
 const COLOR_CYAN = '#00fff4';
 const COLOR_FIELD = '#2b2f3d';
+
+// --- Mobile Mode State ---
+let isMobileMode = false;
 
 // --- Settings & Defaults ---
 const defaultKeybinds = [
@@ -338,7 +451,7 @@ const GOLD_UPGRADES = [
 ];
 
 const PLATINUM_UPGRADES = [
-    {id:'platinumDoubleAll',label:'Chaos Mode',icon:'🌈',desc:'3 Balls for next 3 Rounds.',tier:'platinum'}, // Removed permanent:true
+    {id:'platinumDoubleAll',label:'Chaos Mode',icon:'🌈',desc:'3 Balls for next 3 Rounds.',tier:'platinum'}, 
     {id:'platinumSuperAI',label:'Virus Upload',icon:'👾',desc:'AI confused for first 5s of every round.',tier:'platinum'},
     {id:'platinumStickyNet',label:'Black Hole',icon:'🕳️',desc:'Enemy goal sucks ball in if close.',tier:'platinum'},
     {id:'platinumOmniBoost',label:'Infinite Fuel',icon:'🔥',desc:'Boost never runs out.',tier:'platinum'},
@@ -373,6 +486,131 @@ const EVOLUTIONS = {
 };
 
 const ALL_UPGRADES = [...BRONZE_UPGRADES, ...SILVER_UPGRADES, ...GOLD_UPGRADES, ...PLATINUM_UPGRADES];
+
+// --- Mobile Functions ---
+function toggleMobileMode() {
+    isMobileMode = !isMobileMode;
+    const btn = document.getElementById('mode-toggle-btn');
+    const body = document.body;
+    
+    if (isMobileMode) {
+        btn.textContent = '📱 Mobile Mode';
+        btn.classList.add('mobile-active');
+        body.classList.add('mobile-mode');
+        showNotification("Mobile Controls Enabled");
+    } else {
+        btn.textContent = '💻 PC Mode';
+        btn.classList.remove('mobile-active');
+        body.classList.remove('mobile-mode');
+        showNotification("Mobile Controls Disabled");
+    }
+    
+    // Refresh main menu if open to update 2v2 visibility
+    if (gameState === 'menu' && !document.getElementById('ui-panel').classList.contains('hidden')) {
+        // Do nothing (ingame)
+    } else if (gameState === 'menu') {
+        drawMainMenu();
+    }
+}
+
+// Joystick Logic
+function setupJoystick(baseId, playerId, isSplit=false) {
+    const base = document.getElementById(baseId);
+    const stick = base.querySelector('.joystick-stick');
+    let touchId = null;
+    let originX = 0, originY = 0;
+
+    base.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        touchId = touch.identifier;
+        const rect = base.getBoundingClientRect();
+        originX = rect.left + rect.width / 2;
+        originY = rect.top + rect.height / 2;
+        handleMove(touch.clientX, touch.clientY);
+    }, {passive: false});
+
+    base.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                handleMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                break;
+            }
+        }
+    }, {passive: false});
+
+    const endHandler = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                touchId = null;
+                resetStick();
+                break;
+            }
+        }
+    };
+    base.addEventListener('touchend', endHandler);
+    base.addEventListener('touchcancel', endHandler);
+
+    function handleMove(clientX, clientY) {
+        const dx = clientX - originX;
+        const dy = clientY - originY;
+        const dist = Math.min(Math.hypot(dx, dy), 35); // Max stick movement radius
+        const angle = Math.atan2(dy, dx);
+        
+        const moveX = Math.cos(angle) * dist;
+        const moveY = Math.sin(angle) * dist;
+        
+        stick.style.transform = `translate(${moveX}px, ${moveY}px)`;
+        
+        // Map to keys
+        const keysObj = playerSettings.keybinds[playerId - 1]; // P1=0, P2=1
+        
+        // Reset all direction keys for this player first
+        keys[keysObj.left] = false; keys[keysObj.right] = false;
+        keys[keysObj.up] = false; keys[keysObj.down] = false;
+        
+        // Thresholds for directional input
+        if (dx < -10) keys[keysObj.left] = true;
+        if (dx > 10) keys[keysObj.right] = true;
+        if (dy < -10) keys[keysObj.up] = true;
+        if (dy > 10) keys[keysObj.down] = true;
+    }
+
+    function resetStick() {
+        stick.style.transform = `translate(0px, 0px)`;
+        const keysObj = playerSettings.keybinds[playerId - 1];
+        keys[keysObj.left] = false; keys[keysObj.right] = false;
+        keys[keysObj.up] = false; keys[keysObj.down] = false;
+    }
+}
+
+function setupButton(btnId, keyName) {
+    const btn = document.getElementById(btnId);
+    if(!btn) return;
+    
+    const press = (e) => { e.preventDefault(); keys[keyName] = true; };
+    const release = (e) => { e.preventDefault(); keys[keyName] = false; };
+    
+    btn.addEventListener('touchstart', press, {passive:false});
+    btn.addEventListener('touchend', release);
+    btn.addEventListener('touchcancel', release);
+}
+
+// Init Controls
+window.addEventListener('load', () => {
+    // Single Player / VS Computer setup
+    setupJoystick('joystick-left', 1); // Controls P1
+    setupButton('btn-boost', 'ShiftLeft'); // P1 Boost
+    setupButton('btn-teleport', 'KeyT'); // P1 Teleport
+
+    // 1v1 Split setup
+    setupJoystick('p1-joystick', 1);
+    setupButton('p1-boost', 'ShiftLeft');
+    
+    setupJoystick('p2-joystick', 2);
+    setupButton('p2-boost', 'ShiftRight');
+});
 
 // --- Helper Functions ---
 function showNotification(text, isEvolution = false, isWarning = false) {
@@ -412,42 +650,27 @@ function saveForeverProgress() {
 
 // --- Updated Probability Logic (Bronze Floor & Strict Hierarchy) ---
 function calculateTierChances(level) {
-    // Fixed probabilities for Levels 0-35
     if (level < 35) {
         let progress = level / 35.0;
-        // Bronze: 90% -> 50% (Never below 50)
         let b = 90 - (40 * progress); 
-        // Silver: 7% -> 45%
         let s = 7 + (38 * progress);
-        // Gold: 2% -> 4%
         let g = 2 + (2 * progress);
-        // Platinum: 1% -> 1%
         let p = 1;
         return { bronze: b, silver: s, gold: g, platinum: p };
     } 
-    // Levels 35-50
     else if (level < 50) {
         let progress = (level - 35) / 15.0;
-        // Bronze: Fixed at 50%
         let b = 50;
-        // Silver: 45% -> 35%
         let s = 45 - (10 * progress);
-        // Gold: 4% -> 13%
         let g = 4 + (9 * progress);
-        // Platinum: 1% -> 2%
         let p = 1 + (1 * progress);
         return { bronze: b, silver: s, gold: g, platinum: p };
     } 
-    // Levels 50+
     else {
         let progress = Math.min(1.0, (level - 50) / 50.0);
-        // Bronze: 50%
         let b = 50;
-        // Silver: 35% -> 30%
         let s = 35 - (5 * progress);
-        // Gold: 13% -> 15%
         let g = 13 + (2 * progress);
-        // Platinum: 2% -> 5%
         let p = 2 + (3 * progress);
         return { bronze: b, silver: s, gold: g, platinum: p };
     }
@@ -455,7 +678,7 @@ function calculateTierChances(level) {
 
 function getAbilityTierByWeightedChance(level) {
     const chances = calculateTierChances(level);
-    currentTierChances = chances; // store for UI
+    currentTierChances = chances; 
     let r = Math.random() * 100;
     if (r < chances.bronze) return "bronze";
     r -= chances.bronze;
@@ -491,7 +714,6 @@ function randomAbilities(amt, disallowIds=[]) {
         let pool;
         if (attemptEvo) {
             pool = getPoolForTier(evoTier);
-            // Filter already owned EVOs (usually max 1)
             pool = pool.filter(u => !playerUpgrades[u.id]); 
         } else {
             pool = getPoolForTier(tier);
@@ -499,21 +721,14 @@ function randomAbilities(amt, disallowIds=[]) {
 
         if (pool) {
             pool = pool.filter(u => {
-                // 1. Filter if max stacks reached (3)
                 if ((playerUpgrades[u.id] || 0) >= 3) return false;
-                // 2. Filter if permanent and already owned (1)
                 if (u.permanent && (playerUpgrades[u.id] || 0) >= 1) return false;
-                // 3. Filter if Evolution already exists (which implies base is obsolete)
                 if (playerUpgrades[u.id + '_evo']) return false;
-                
                 return true;
             });
         }
 
-        if (!pool || pool.length === 0) {
-            // Fallback if pool is empty
-            pool = getPoolForTier('bronze');
-        }
+        if (!pool || pool.length === 0) pool = getPoolForTier('bronze');
         
         const pick = pool[Math.floor(Math.random() * pool.length)];
         if (pick) chosen.push(pick);
@@ -527,6 +742,8 @@ function requestUpgradePicker() {
     rerollUpgradeOptions(); 
     pauseBtn.classList.add('hidden');
     fullscreenBtn.classList.add('hidden');
+    // Hide controls during upgrade
+    document.getElementById('touch-controls').style.display = 'none';
 }
 
 function rerollUpgradeOptions() {
@@ -534,7 +751,6 @@ function rerollUpgradeOptions() {
     const excluded = []; 
     upgradeOptions = randomAbilities(numPicks, excluded);
    
-    // Logic: If we have rerollPlus, ignore usage count.
     if ((upgradeRerollsUsed < 1) || playerUpgrades.rerollPlus) {
         if (playerUpgrades.rerollPlus) {
             upgradeOptions.push({id:'rerollPlus', label:'FREE REROLL', icon:'🔄', desc:`Unlimited rerolls.`, tier:'gold'});
@@ -551,7 +767,6 @@ function applyUpgrade(ability) {
         extraUpgradePicks++;
     } 
     else if (ability.id === 'platinumDoubleAll') {
-        // Chaos Mode Special Logic: Stacks count, but also adds temporary rounds
         let currentCount = playerUpgrades[ability.id] || 0;
         playerUpgrades[ability.id] = currentCount + 1;
         chaosRoundTimer += 3;
@@ -584,7 +799,6 @@ function applyUpgrade(ability) {
         }
     }
    
-    // Apply upgrades immediately to update stats
     cars.forEach(c => {
         if(!c.ai) c.applyPlayerUpgrades(playerUpgrades);
         else if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); 
@@ -602,20 +816,22 @@ function applyUpgrade(ability) {
         goaliePad = new GoaliePad(); 
         if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
     }
-    // Updated Logic for Special Boost Pads
     if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
-        // Spawns 2 Special Pads
         boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
         boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
     }
-    if (playerUpgrades.freePad && boostPads.length < 12) { // Logic to prevent unlimited spawning if function called repeatedly
-         // Check if we already have the center pad
+    if(playerUpgrades.freePad && boostPads.length < 12) { 
          let hasCenter = boostPads.some(p => Math.abs(p.x - canvas.width/2) < 5 && Math.abs(p.y - canvas.height/2) < 5);
          if(!hasCenter) boostPads.push(new BoostPad(canvas.width/2, canvas.height/2, 20, true));
     }
     
+    // Teleport button visibility
+    if (playerUpgrades.platinumTeleport || playerUpgrades.platinumTeleport_evo) {
+        document.getElementById('btn-teleport').classList.add('visible');
+    }
+
     updateUpgradesDisplay();
-    updateUI(); // Force HUD update for Mass/Stats
+    updateUI();
 }
 
 function updateUpgradesDisplay() {
@@ -667,6 +883,9 @@ function exitUpgradePicker() {
     overlay.innerHTML = '';
     pauseBtn.classList.remove('hidden');
     fullscreenBtn.classList.remove('hidden');
+    // Show controls again
+    if (isMobileMode) document.getElementById('touch-controls').style.display = 'block';
+    
     lastTime = performance.now(); 
     animationFrameId = requestAnimationFrame(gameLoop);
 }
@@ -701,9 +920,7 @@ class Car {
         this.aiStuckStateTimer = 0;
         this.stuckThresholdDist = 60 + Math.random() * 30;
        
-        this.aiPredictionLead = 0; // Intelligence Factor
-        
-        // Initial Rotation Speed Set
+        this.aiPredictionLead = 0; 
         this.rotationSpeed = this.baseRotationSpeed;
 
         this.updateDifficulty(difficulty);
@@ -715,15 +932,11 @@ class Car {
         if (this.ai) {
             this.acceleration = this.baseAcceleration + 0.05 * (difficulty-1);
             this.maxBoost = 100 + 10 * (difficulty-1);
-            
-            // Fix: Reset rotation speed to base for AI, ignoring player sensitivity
             this.rotationSpeed = this.baseRotationSpeed;
-            
             this.sideFrictionFactor = this.baseSideFrictionFactor;
             this.mass = 1.0;
             this.repelField = false;
             this.aiPredictionLead = 0;
-            
             this.sizeMultiplier = this.isFriendlyAI ? 0.75 : 1.0; 
             
             if (!this.isFriendlyAI && (playerUpgrades.shrinkEnemies || playerUpgrades.shrinkEnemies_evo)) {
@@ -733,37 +946,29 @@ class Car {
                 this.sideFrictionFactor *= 0.5;
             }
             
-            // Reset global tracker
             aiMutators = [];
-
-            // AI Level Scaling with Warnings
             if (!this.isFriendlyAI) {
                 if (playerLevel >= 50) {
                      this.mass *= 1.5;
                      this.sideFrictionFactor *= 2.0; 
                      aiMutators.push("Tank Hull");
                 }
-                
                 if (playerLevel >= 60) {
                      this.acceleration *= 1.2; 
                      aiMutators.push("Turbo Engine");
                 }
-                
                 if (playerLevel >= 70) {
                      this.baseMaxSpeed *= 1.15;
                      aiMutators.push("Overdrive");
                 }
-                
                 if (playerLevel >= 80) {
                      this.rotationSpeed *= 1.2;
                      aiMutators.push("Pro Handling");
                 }
-
                 if (playerLevel >= 90) {
                      this.repelField = true; 
                      aiMutators.push("Repulsor Field");
                 }
-
                 if (playerLevel > 100) {
                     let extraLevels = Math.floor((playerLevel - 100) / 10);
                     if (extraLevels > 0) {
@@ -773,7 +978,6 @@ class Car {
                     }
                 }
             }
-
         } else {
             this.applyPlayerUpgrades(playerUpgrades);
         }
@@ -785,30 +989,22 @@ class Car {
         let hasEvo = (id) => !!upgrades[id+'_evo'];
 
         this.acceleration = this.baseAcceleration * (1 + count('accel') * (hasEvo('accel')?0.30:0.15));
-        // Fix: Explicitly double check player sensitivity application
         this.rotationSpeed = this.baseRotationSpeed * playerSettings.sensitivity * (1 + count('turn') * (hasEvo('turn')?0.3:0.15));
         this.maxBoost = 100 + count('maxBoost') * (hasEvo('maxBoost')?50:20);
         
         let aeroFactor = count('aerodynamics') * 0.1; 
         this.baseMaxSpeed = 5.0 * (1 + count('speed') * (hasEvo('speed')?0.15:0.05) + aeroFactor);
         
-        // --- FIXED GRIP LOGIC ---
-        // Friction reduces side slip. Higher friction = More Grip.
-        // Base is 0.05. We add to it to increase grip.
-        let gripBonus = count('frictionFix') * 0.05; // Adds 0.05 per stack (doubles grip effectively)
-        if (hasEvo('frictionFix')) gripBonus = 1.0; // Max Grip
+        let gripBonus = count('frictionFix') * 0.05; 
+        if (hasEvo('frictionFix')) gripBonus = 1.0; 
         this.sideFrictionFactor = Math.min(1.0, this.baseSideFrictionFactor + gripBonus);
        
-        // --- FIXED MASS LOGIC ---
-        // Base mass 1.0. Additive multipliers.
         let massAdd = 0;
-        if (count('heavyDuty') > 0) massAdd += (0.25 * count('heavyDuty')); // 1 -> 1.25 -> 1.50 -> 1.75
+        if (count('heavyDuty') > 0) massAdd += (0.25 * count('heavyDuty')); 
         if (hasEvo('bigCar')) massAdd += 0.25; 
         else if (count('bigCar') > 0) massAdd += 0.10;
-
         this.mass = 1.0 + massAdd;
 
-        // Size Logic
         this.sizeMultiplier = 1.0; 
         if (count('bigCar') > 0) this.sizeMultiplier += (hasEvo('bigCar') ? 0.20 : 0.10);
 
@@ -906,13 +1102,11 @@ class Car {
     handleAI(deltaTime) {
         if (!ball || this.isStunned) {
             if(this.isStunned) {
-                // Force Stop for Time Stop
                 this.velX = 0; this.velY = 0;
             }
             return;
         }
         
-        // STUCK LOGIC
         if (this.aiStuckState !== 'none') {
             this.aiStuckStateTimer -= deltaTime;
             if (this.aiStuckState === 'reversing') {
@@ -965,7 +1159,6 @@ class Car {
             this.stuckInCornerTimer = 0;
         }
        
-        // Standard AI Logic
         cars.forEach(otherCar => {
             if (otherCar === this || !otherCar.ai || otherCar.isFriendlyAI !== this.isFriendlyAI) return;
             let dxAI = this.x - otherCar.x;
@@ -1036,7 +1229,6 @@ class Car {
             else if (this.role === 'defender') targetX = Math.min(canvas.width/2 - 20, targetX);
         }
 
-        // Intelligent Prediction Scaling
         let smartFactor = 0;
         if (playerLevel > 50 && (this.role === 'attacker' || (this.role === 'mid' && amIClosest))) {
             smartFactor = Math.min(1.0, (playerLevel - 50) / 50.0) + this.aiPredictionLead;
@@ -1052,7 +1244,6 @@ class Car {
         let angleDiff = targetAngle-this.angle; if(angleDiff>180)angleDiff-=360;if(angleDiff<-180)angleDiff+=360;
         const dist = Math.hypot(dx,dy);
        
-        // NEW VIRUS LOGIC: Triggers at start of round (first 5 seconds)
         let isRoundStartVirus = playerUpgrades.platinumSuperAI && roundTime < 5.0 && !this.isFriendlyAI;
         
         if(this.effects.confused || isRoundStartVirus) {
@@ -1089,8 +1280,6 @@ class Car {
                 this.isStunned=false;
                 this.stunDuration = 0;
             }
-            // Don't return here, move() needs to process position for stuck check etc, 
-            // but velocity was zeroed in handleAI for stuns
         }
        
         ["slow","confused","forceField","invincible","goalBlock","ring","ghost"].forEach(eff=>{
@@ -1141,7 +1330,6 @@ class Car {
         if (this.y < marginH) { this.y = marginH; this.velY *= -0.5; }
         if (this.y > canvas.height - marginH) { this.y = canvas.height - marginH; this.velY *= -0.5; }
         
-        // Repel Field Logic (Player or AI)
         if ((!this.ai && playerUpgrades.repelField) || (this.ai && this.repelField)) {
             cars.forEach(c => {
                if (c !== this && c.team_side !== this.team_side) { // Affects enemies
@@ -1189,7 +1377,7 @@ class Car {
             let style = "#00fff4";
             if (this.effects.ring) style = "#fcd34d";
             if (this.effects.forceField) style = "#00ff00";
-            if (this.repelField) style = "#ef4444"; // Red for AI repel
+            if (this.repelField) style = "#ef4444"; 
             
             ctx.strokeStyle = style;
             ctx.globalAlpha = 0.6; ctx.lineWidth=4;
@@ -1226,7 +1414,7 @@ class Car {
     }
 }
 
-// ... Ball, BoostPad, GoaliePad classes are same ...
+// ... Ball, BoostPad, GoaliePad classes ...
 class Ball {
     constructor(x, y, radius, pointType=1) {
         this.x=x;this.y=y;this.radius=radius;this.color=COLOR_CYAN;
@@ -1238,7 +1426,7 @@ class Ball {
              let p = cars[0];
              if (p && !p.ai) {
                  let d = Math.hypot(p.x-this.x, p.y-this.y);
-                 if (d < 250) { // Increased range slightly
+                 if (d < 250) { 
                      let pullStr = playerUpgrades.ballMagnet_evo ? 0.006 : 0.003;
                      this.velX += (p.x - this.x) * pullStr * PHYSICS_TICK_RATE;
                      this.velY += (p.y - this.y) * pullStr * PHYSICS_TICK_RATE;
@@ -1246,7 +1434,6 @@ class Ball {
              }
         }
         if (playerUpgrades.gravityWell) {
-             // Stronger pull to enemy goal
              let targetX = canvas.width; let targetY = canvas.height/2;
              this.velX += (targetX - this.x) * 0.0015 * PHYSICS_TICK_RATE;
              this.velY += (targetY - this.y) * 0.0015 * PHYSICS_TICK_RATE;
@@ -1262,10 +1449,9 @@ class Ball {
         if (this.y < bMargin) { this.y = bMargin; this.velY *= -0.8; }
         else if (this.y > canvas.height - bMargin) { this.y = canvas.height - bMargin; this.velY *= -0.8; }
         
-        // Platinum Sticky Net (Black Hole)
         if(playerUpgrades.platinumStickyNet || playerUpgrades.platinumStickyNet_evo) {
             let aiGoalTop=canvas.height/2-GOAL_HEIGHT/2, aiGoalBottom=canvas.height/2+GOAL_HEIGHT/2;
-            let triggerDist = 140; // Reduced range from 200
+            let triggerDist = 140; 
             if(this.x > canvas.width - triggerDist && this.y > aiGoalTop - 50 && this.y < aiGoalBottom + 50) {
                  let goalCX = canvas.width + 20; 
                  let goalCY = canvas.height/2;
@@ -1310,19 +1496,13 @@ class Ball {
         this.x=canvas.width/2; this.y=canvas.height/2+randomYOffset; this.velX=0;this.velY=0;
         this.stuckTimer = 0; this.ballStuckCountdown = 0;
         
-        // Modified Chaos Mode Spawn Logic
-        // Active only if timer > 0.
         let chaosActive = chaosRoundTimer > 0;
         if(chaosActive && this !== foreverBalls[0]) {
-             // Base offset toward enemy. 
              let count = playerUpgrades['platinumDoubleAll'] || 1;
              let baseOffset = 200;
-             // Area increases with multiple stacks
              let extraOffset = (count - 1) * 80;
              let totalOffset = baseOffset + extraOffset;
-             
-             // "Chance only a little" - Add some randomness to the x position
-             let randFactor = (Math.random() * 100) - 50; // +/- 50 variation
+             let randFactor = (Math.random() * 100) - 50; 
              
              this.x = Math.min(canvas.width - 150, (canvas.width/2) + totalOffset + randFactor); 
         }
@@ -1337,15 +1517,13 @@ class Ball {
 class BoostPad {
     constructor(x,y,radius=12, isSpecial=false){ 
         this.x=x; this.y=y; this.radius=radius; 
-        this.isSpecial=isSpecial; // New Property
+        this.isSpecial=isSpecial; 
         this.active = true; this.cooldownTimer = 0; 
     }
     update(deltaTime) { if (!this.active) { this.cooldownTimer -= deltaTime; if (this.cooldownTimer <= 0) this.active = true; } }
     draw() {
         ctx.save();
         if (!this.active) ctx.globalAlpha = 0.3; 
-        
-        // Color Logic: Special pads are Purple (Fuchsia), Normal are Gold
         let outerColor = this.isSpecial ? "#d946ef" : "#fbbf24"; 
         let innerColor = this.isSpecial ? "#a21caf" : "#f59e42";
 
@@ -1361,8 +1539,6 @@ class BoostPad {
     consume(car) {
         if (!this.active) return;
         this.active = false; this.cooldownTimer = 3.0;
-        
-        // Base refill is 25. Special is 50.
         let baseRefill = this.isSpecial ? 50 : 25;
         let refill = baseRefill + (playerUpgrades.boostRegen ? 8 : 0) + (playerUpgrades.boostRegen_evo ? 15 : 0);
         car.refillBoost(refill);
@@ -1438,7 +1614,6 @@ function setupGameObjects(mode,initialAICount=1){
     let center_x=canvas.width/2, center_y=canvas.height/2;
     foreverBalls = [];
     
-    // Chaos Mode logic for setup (checks duration)
     let chaosActive = chaosRoundTimer > 0;
     let count = chaosActive ? 3 : 1;
     
@@ -1479,7 +1654,6 @@ function setupGameObjects(mode,initialAICount=1){
         new BoostPad(canvas.width*0.1,canvas.height*0.12), new BoostPad(canvas.width*0.9,canvas.height*0.12),
         new BoostPad(canvas.width*0.1,canvas.height*0.88), new BoostPad(canvas.width*0.9,canvas.height*0.88),
     ];
-    // Re-apply special pads if upgrades persist on setup
     if(playerUpgrades.extraBoostPad) {
         boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
         boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
@@ -1570,7 +1744,6 @@ function handleGoal(scoringTeam, scoredBall) {
         scoreLeft += scoredBall.pointType;
         playerLevel += scoredBall.pointType;
         
-        // Reduce Chaos Mode Duration
         if (chaosRoundTimer > 0) chaosRoundTimer--;
         updateUpgradesDisplay();
 
@@ -1587,7 +1760,6 @@ function handleGoal(scoringTeam, scoredBall) {
                  cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
             }
             
-            // Warning Notification for new AI Abilities
             if (playerLevel % 10 === 0 && playerLevel >= 50) {
                 showNotification("WARNING: AI MUTATION DETECTED!", false, true);
             }
@@ -1599,7 +1771,7 @@ function handleGoal(scoringTeam, scoredBall) {
             if (playerUpgrades.timeFreeze || playerUpgrades.timeFreeze_evo) { 
                 ai.isStunned = true; 
                 ai.stunDuration = (playerUpgrades.timeFreeze_evo?4.0:2.0); 
-                ai.velX = 0; ai.velY = 0; // Force stop logic for clarity
+                ai.velX = 0; ai.velY = 0; 
             }
         });
        
@@ -1617,26 +1789,19 @@ function handleGoal(scoringTeam, scoredBall) {
         }
     }
    
-    // Reset Balls Logic (Respecting Chaos Mode)
-    // Standard reset clears everything. 
-    // We call reset on all cars.
     cars.forEach(c => c.reset());
     
-    // If multiple balls existed (Chaos/Multiball), destroy them unless Chaos timer is active
-    // Actually, easier: Nuke balls, respawn appropriate count
     foreverBalls = [];
     let chaosActive = chaosRoundTimer > 0;
     let count = chaosActive ? 3 : 1;
     
-    // If score triggered multiball split, we might want to keep those? 
-    // Standard game logic: Goal resets everything to center.
     for(let i=0; i<count; i++) {
         let b = new Ball(canvas.width/2, canvas.height/2, BALL_RADIUS);
-        b.reset(); // Applies chaos offsets
+        b.reset(); 
         foreverBalls.push(b);
     }
     
-    roundTime = 0; // Reset round timer
+    roundTime = 0; 
    
     if (gameState === 'playing') {
         if (endConditionType === 'points' && (scoreLeft >= targetScore || scoreRight >= targetScore) ||
@@ -1652,7 +1817,7 @@ function update(deltaTime) {
     if (playerUpgrades.boostRain && Math.random() < 0.001) { cars[0].refillBoost(30); showNotification("Boost Leak!"); }
     if (endConditionType === 'timed') gameTimer=Math.max(0,gameTimer-deltaTime);
     
-    roundTime += deltaTime; // Track round time
+    roundTime += deltaTime; 
    
     cars.forEach(car => { car.handleInput(deltaTime); car.move(deltaTime); });
     foreverBalls.forEach(ball => ball.move(deltaTime));
@@ -1730,7 +1895,6 @@ function updateUI(){
         document.getElementById('timer').textContent=`${playerLevel}`;
         document.getElementById('mode-info').textContent=`PLAYER LEVEL`;
         
-        // AI Intel Update
         let numAI = getNumberOfAICars();
         document.getElementById('ai-status-lvl').textContent = aiDifficulty;
         document.getElementById('ai-count').textContent = `${numAI} Car${numAI>1?'s':''}`;
@@ -1745,30 +1909,24 @@ function updateUI(){
         document.getElementById('ui-panel').classList.remove('hidden');
         document.getElementById('forever-status-panel').classList.remove('hidden');
         
-        // New HUD Updates
         if (cars && cars[0]) {
             foreverHud.classList.remove('hidden');
             const p1 = cars[0];
             
-            // Speed (Scaled to look like km/h)
             const speedKm = Math.round(p1.speed * 18); 
             const speedEl = document.getElementById('hud-speed');
             speedEl.textContent = speedKm;
             
-            // Color speed based on intensity
             if (speedKm > 100) speedEl.className = 'text-purple-400 font-black text-6xl italic leading-none';
             else if (speedKm > 60) speedEl.className = 'text-yellow-400 font-black text-6xl italic leading-none';
             else speedEl.className = 'text-cyan-400 font-black text-6xl italic leading-none';
 
-            // Stats
             document.getElementById('hud-boost-cap').textContent = p1.maxBoost >= 9999 ? '∞' : `${Math.round(p1.boost)}/${Math.round(p1.maxBoost)}`;
             document.getElementById('hud-mass').textContent = p1.mass.toFixed(2) + 'x';
             
-            // Power (Relative to base 0.3)
             const powerPct = Math.round((p1.acceleration / 0.3) * 100);
             document.getElementById('hud-accel').textContent = powerPct + '%';
 
-            // Grip (Side Friction x 1000 for readability)
             const gripScore = Math.round(p1.sideFrictionFactor * 1000);
             document.getElementById('hud-grip').textContent = gripScore;
             
@@ -1798,14 +1956,17 @@ function drawMainMenu() {
     pauseBtn.classList.add('hidden');
     fullscreenBtn.classList.add('hidden');
     
-    // Continue Button logic removed from here and moved to Vs Computer menu
+    // Disable 2v2 if on mobile
+    let multiplayer2v2Style = isMobileMode ? 'opacity-50 cursor-not-allowed bg-gray-800' : 'bg-gray-600 hover:bg-gray-500 clickable-option';
+    let multiplayer2v2Action = isMobileMode ? '' : 'data-action="select-mode-2v2"';
+    let multiplayer2v2Text = isMobileMode ? '2v2 Multiplayer (Disabled on Mobile)' : '2v2 Multiplayer';
 
     overlay.innerHTML = `
         <div class="text-center bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-md pointer-events-auto">
             <h1 class="text-5xl font-extrabold mb-8 text-yellow-400">2D ROCKET LEAGUE<br><span class="text-sm text-white tracking-widest">MADE BY ERIC</span></h1>
             <div id="menu-options" class="space-y-4 text-xl">
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-1v1">1v1 Multiplayer</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-2v2">2v2 Multiplayer</div>
+                <div class="p-3 rounded-lg ${multiplayer2v2Style}" ${multiplayer2v2Action}>${multiplayer2v2Text}</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-vs-computer">Vs Computer</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="play-online">Play Online</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="settings">Settings</div>
@@ -1939,7 +2100,6 @@ function drawSettingsMenu() {
 function drawGameSettingsMenu(mode) {
     const overlay = document.getElementById('overlay');
     
-    // Updated Forever Mode Logic for Vs Computer Menu
     let foreverModeSection = '';
     if (mode === 'Vs Computer') {
         let continueBtn = '';
@@ -2096,7 +2256,6 @@ function startGame(mode, endType='timed', loadSave = false) {
     
     if(endType === 'forever') {
         if (loadSave && savedForeverSession) {
-            // Load Save Data
             const s = savedForeverSession;
             playerLevel = s.playerLevel;
             scoreLeft = s.scoreLeft;
@@ -2110,7 +2269,6 @@ function startGame(mode, endType='timed', loadSave = false) {
             timeLimitSeconds = 99999; targetScore = 999;
             pendingUpgradePick = false;
         } else {
-            // New Game
             timeLimitSeconds = 99999; targetScore = 999; playerLevel = 0; playerUpgrades = {}; playerAbilities = []; pendingUpgradePick = false;
             chaosRoundTimer = 0; aiMutators = [];
         }
@@ -2119,13 +2277,11 @@ function startGame(mode, endType='timed', loadSave = false) {
     }
     
     gameTimer = timeLimitSeconds;
-    roundTime = 0; // Reset round timer on start
+    roundTime = 0; 
     
-    // Setup Logic
     setupGameObjects(mode, (mode === 'Vs Computer' ? 1 : 0));
     
     if (loadSave && endType === 'forever') {
-        // Re-apply spawn logic for loaded upgrades (since setupGameObjects only does base cars)
         if (playerUpgrades['miniRobot'] || playerUpgrades['miniRobot_evo']) {
              let pId = 1001;
              if (!cars.some(c => c.playerId === pId)) addFriendlyAICar(pId, 'attacker', playerUpgrades['miniRobot_evo'] ? 2.0 : 1.5);
@@ -2138,21 +2294,36 @@ function startGame(mode, endType='timed', loadSave = false) {
             goaliePad = new GoaliePad(); 
             if(playerUpgrades['autoGoalie_evo']) goaliePad.width = 20;
         }
-        // Special Pads Logic for Loaded Game
         if (playerUpgrades.extraBoostPad && boostPads.length < 11) {
             boostPads.push(new BoostPad(canvas.width*0.35, canvas.height*0.35, 12, true));
             boostPads.push(new BoostPad(canvas.width*0.65, canvas.height*0.65, 12, true));
         }
-        // Apply difficulty to pre-spawned AI
         cars.forEach(c => { if(c.ai && !c.isFriendlyAI) c.updateDifficulty(aiDifficulty); });
         
-        // Add extra AI if difficulty warrants it (simple check)
         if (playerLevel >= 15 && getNumberOfAICars() < 2) addEnemyAICar();
         if (playerLevel >= 30 && getNumberOfAICars() < 3) addEnemyAICar();
     }
 
     updateUI(); updateUpgradesDisplay();
     
+    // Controls Visibility Logic
+    const controls = document.getElementById('touch-controls');
+    const singleLayout = document.getElementById('single-player-controls');
+    const splitLayout = document.getElementById('split-player-controls');
+    
+    if (isMobileMode) {
+        controls.style.display = 'block';
+        if (mode === '1v1 Multiplayer') {
+            singleLayout.style.display = 'none';
+            splitLayout.style.display = 'block';
+        } else {
+            singleLayout.style.display = 'block';
+            splitLayout.style.display = 'none';
+        }
+    } else {
+        controls.style.display = 'none';
+    }
+
     if (endType === 'forever' && !loadSave) { 
         gameState = 'upgrading'; overlay.classList.remove('visible'); overlay.innerHTML = ''; requestUpgradePicker(); 
     } else {
@@ -2171,6 +2342,7 @@ function togglePause() {
     const overlay = document.getElementById('overlay');
     if (gameState === 'playing') {
         gameState = 'paused'; pauseBtn.innerHTML = '<span class="mr-2">▶️</span> Resume (P)'; overlay.classList.add('visible');
+        if (isMobileMode) document.getElementById('touch-controls').style.display = 'none';
         
         let exitButton = '<div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="main-menu">Main Menu</div>';
         if (endConditionType === 'forever') {
@@ -2198,10 +2370,9 @@ function togglePause() {
         overlay.classList.remove('visible'); 
         overlay.innerHTML = ''; 
         pauseBtn.innerHTML = '<span class="mr-2">⏸️</span> Pause (P)';
-        
-        // FIX: Do NOT start a new animation frame loop here. 
-        // The game loop keeps running in the background even when paused (to draw paused state).
-        // By setting gameState to 'playing', the existing loop will resume logic updates on the next frame.
+        if (isMobileMode) document.getElementById('touch-controls').style.display = 'block';
+        lastTime = performance.now(); // Reset timing delta
+        animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
 
