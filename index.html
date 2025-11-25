@@ -51,7 +51,7 @@
             flex-grow: 1; height: 0; min-height: 0; margin: 10px 0;
         }
 
-        #canvas-wrapper { position: relative; width: 1000px; height: 600px; touch-action: none; }
+        #canvas-wrapper { position: relative; width: 1000px; height: 600px; touch-action: none; overflow: hidden;}
 
         #game-container.fullscreen-active #canvas-wrapper {
             width: auto; height: auto; max-width: 100%; max-height: 100%;
@@ -105,35 +105,44 @@
             border-radius: 50%; backdrop-filter: blur(2px);
             touch-action: none; display: flex; justify-content: center; align-items: center;
         }
+
+        .touch-control-area {
+            position: absolute;
+            pointer-events: auto;
+            touch-action: none;
+            /* background: rgba(255, 0, 0, 0.05); */ /* For debugging touch areas */
+        }
         
         .joystick-base {
-            width: 120px; height: 120px;
-            bottom: 30px; left: 30px;
+            width: 120px; height: 120px; /* Increased size */
+            pointer-events: none; /* The base is visual only, area handles touch */
+            display: none; /* Hide by default, JS will show it */
+            position: absolute; /* Needed for JS positioning */
         }
         .joystick-stick {
-            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.5);
+            width: 50px; height: 50px; /* Increased size */
+            background: rgba(255, 255, 255, 0.5);
             border-radius: 50%; pointer-events: none;
             transform: translate(0px, 0px);
+            transition: transform 0.05s ease-out;
         }
         
         .action-btn {
-            width: 80px; height: 80px; bottom: 40px; right: 40px;
+            width: 90px; height: 90px; bottom: 30px; right: 30px;
             background: rgba(59, 130, 246, 0.3); border-color: rgba(59, 130, 246, 0.5);
             font-weight: 900; color: rgba(255,255,255,0.8); font-size: 14px;
         }
         .action-btn:active { background: rgba(59, 130, 246, 0.6); }
 
         .teleport-btn {
-            width: 60px; height: 60px; bottom: 140px; right: 50px;
+            width: 60px; height: 60px; bottom: 130px; right: 35px; /* Adjusted position */
             background: rgba(168, 85, 247, 0.3); border-color: rgba(168, 85, 247, 0.5);
             display: none; /* Hidden by default */
         }
         .teleport-btn.visible { display: flex; }
 
         /* 1v1 specific controls layout */
-        .p1-controls { bottom: 20px; left: 20px; }
-        .p2-controls { bottom: 20px; right: 20px; }
-        .side-btn { width: 60px; height: 60px; margin: 5px; }
+        /* These are now handled by inline styles in the HTML */
 
         .menu-selected {
             border: 3px solid #fcd34d;
@@ -182,24 +191,13 @@
         .score-large { font-size: 2rem; transition: font-size 0.3s; }
         .score-normal { font-size: 1.25rem; transition: font-size 0.3s; }
 
-        /* Mode Toggle Button */
-        #mode-toggle-btn {
-            position: fixed; top: 10px; right: 10px; z-index: 100;
-            background: #2563eb; color: white; border: 2px solid #60a5fa;
-            border-radius: 8px; padding: 8px 16px; font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer;
-            transition: all 0.2s;
-        }
-        #mode-toggle-btn.mobile-active { background: #ec4899; border-color: #f472b6; }
-        #mode-toggle-btn:hover { transform: scale(1.05); }
+        /* Mode Toggle Button (Removed from corner) */
 
     </style>
 </head>
 <body class="bg-gray-900 text-white">
 
-<button id="mode-toggle-btn" onclick="toggleMobileMode()">
-    💻 PC Mode
-</button>
+<!-- Removed Mode Toggle Button from here -->
 
 <div id="game-container" class="p-4 sm:p-6 lg:p-8">
     <div id="top-bar" class="w-full mb-2 flex justify-end space-x-2 shrink-0 max-w-[1000px]">
@@ -221,30 +219,37 @@
             <div id="touch-controls" class="touch-layer">
                 <!-- Vs Computer / Standard Layout -->
                 <div id="single-player-controls" class="w-full h-full relative">
-                    <div id="joystick-left" class="touch-control joystick-base">
-                        <div class="joystick-stick"></div>
+                    <!-- Joystick touch area covers left 50% of screen -->
+                    <div id="joystick-area-left" class="touch-control-area" style="position: absolute; bottom: 0; left: 0; width: 50%; height: 100%;">
+                        <!-- Visual joystick base, hidden initially, positioned by JS -->
+                        <div id="joystick-left" class="touch-control joystick-base">
+                            <div class="joystick-stick"></div>
+                        </div>
                     </div>
+                    <!-- Bigger boost button -->
                     <div id="btn-boost" class="touch-control action-btn">BOOST</div>
+                    <!-- Teleport button -->
                     <div id="btn-teleport" class="touch-control action-btn teleport-btn">WARP</div>
                 </div>
 
-                <!-- 1v1 Split Layout -->
+                <!-- 1v1 Split Layout (Side-by-Side) -->
                 <div id="split-player-controls" class="w-full h-full relative hidden">
-                    <!-- Player 1 (Left) -->
-                    <div class="absolute bottom-4 left-4 flex flex-col items-center">
-                         <div id="p1-joystick" class="touch-control joystick-base" style="position:relative; left:0; bottom:0; width:100px; height:100px;">
-                            <div class="joystick-stick" style="width:40px; height:40px;"></div>
-                         </div>
-                         <div id="p1-boost" class="touch-control action-btn" style="position:relative; right:0; bottom:0; width:60px; height:60px; margin-top:10px; background:rgba(59,130,246,0.4);">BST</div>
+                    
+                    <!-- Player 1 (Blue - Left Side) -->
+                    <div id="p1-joystick-area" class="touch-control-area" style="position: absolute; top: 0; left: 0; width: 50%; height: 50%;">
+                        <div id="p1-joystick" class="touch-control joystick-base">
+                            <div class="joystick-stick"></div>
+                        </div>
                     </div>
+                    <div id="p1-boost" class="touch-control action-btn" style="position: absolute; bottom: 30px; left: 30px; width: 90px; height: 90px; background:rgba(59,130,246,0.4);">BOOST</div>
 
-                    <!-- Player 2 (Right) -->
-                    <div class="absolute bottom-4 right-4 flex flex-col items-center">
-                         <div id="p2-joystick" class="touch-control joystick-base" style="position:relative; left:0; bottom:0; width:100px; height:100px;">
-                            <div class="joystick-stick" style="width:40px; height:40px;"></div>
+                    <!-- Player 2 (Red - Right Side) -->
+                    <div id="p2-joystick-area" class="touch-control-area" style="position: absolute; bottom: 0; right: 0; width: 50%; height: 50%;">
+                         <div id="p2-joystick" class="touch-control joystick-base">
+                            <div class="joystick-stick"></div>
                          </div>
-                         <div id="p2-boost" class="touch-control action-btn" style="position:relative; right:0; bottom:0; width:60px; height:60px; margin-top:10px; background:rgba(239,68,68,0.4);">BST</div>
                     </div>
+                    <div id="p2-boost" class="touch-control action-btn" style="position: absolute; top: 30px; right: 30px; width: 90px; height: 90px; background:rgba(239,68,68,0.4);">BOOST</div>
                 </div>
             </div>
 
@@ -390,6 +395,14 @@ let currentTierChances = { bronze:0, silver:0, gold:0, platinum:0 };
 let chaosRoundTimer = 0; // Tracks Chaos Mode duration (in rounds)
 let aiMutators = []; // Tracks active AI buffs for display
 
+// --- Mobile Joystick State ---
+let joystickInputs = {
+    1: { active: false, angle: 0 }, // For Player 1
+    2: { active: false, angle: 0 }, // For Player 2
+    3: { active: false, angle: 0 }, // For Player 3
+    4: { active: false, angle: 0 }  // For Player 4
+};
+
 // --- Saved Session ---
 let savedForeverSession = null;
 
@@ -490,17 +503,17 @@ const ALL_UPGRADES = [...BRONZE_UPGRADES, ...SILVER_UPGRADES, ...GOLD_UPGRADES, 
 // --- Mobile Functions ---
 function toggleMobileMode() {
     isMobileMode = !isMobileMode;
-    const btn = document.getElementById('mode-toggle-btn');
+    const btn = document.getElementById('mobile-toggle-btn-settings'); // Get button from settings
     const body = document.body;
     
     if (isMobileMode) {
-        btn.textContent = '📱 Mobile Mode';
-        btn.classList.add('mobile-active');
+        if(btn) btn.textContent = '📱 Mobile Mode (ON)';
+        if(btn) btn.classList.replace('bg-gray-600', 'bg-pink-600');
         body.classList.add('mobile-mode');
         showNotification("Mobile Controls Enabled");
     } else {
-        btn.textContent = '💻 PC Mode';
-        btn.classList.remove('mobile-active');
+        if(btn) btn.textContent = '💻 PC Mode (OFF)';
+        if(btn) btn.classList.replace('bg-pink-600', 'bg-gray-600');
         body.classList.remove('mobile-mode');
         showNotification("Mobile Controls Disabled");
     }
@@ -509,88 +522,174 @@ function toggleMobileMode() {
     if (gameState === 'menu' && !document.getElementById('ui-panel').classList.contains('hidden')) {
         // Do nothing (ingame)
     } else if (gameState === 'menu') {
-        drawMainMenu();
+        // If we are in the settings menu, changing mode should refresh the menu
+        if (overlay.innerHTML.includes("Settings")) {
+             drawSettingsMenu(); // Redraw settings to update button state
+        } else {
+             drawMainMenu(); // Redraw main menu
+        }
     }
 }
 
-// Joystick Logic
-function setupJoystick(baseId, playerId, isSplit=false) {
+// --- New Joystick Logic ---
+/**
+ * Sets up a mobile joystick
+ * @param {string} areaId - The ID of the touchable area div
+ * @param {string} baseId - The ID of the visual joystick base div
+ * @param {string} stickSelector - A CSS selector to find the stick element inside the base
+ * @param {number} playerId - The player ID (1, 2, 3, or 4) to map inputs to
+ * @param {boolean} invertY - Whether to invert the Y-axis (for face-to-face play)
+ * @param {boolean} visibleIdle - Whether the joystick base should be visible when not touched
+ * @param {object} defaultPos - An object {top, left, bottom, right} for the idle position
+ */
+function setupJoystick(areaId, baseId, stickSelector, playerId, invertY = false, visibleIdle = false, defaultPos = {bottom: '30px', left: '30px'}) {
+    const area = document.getElementById(areaId);
     const base = document.getElementById(baseId);
-    const stick = base.querySelector('.joystick-stick');
+    if (!area || !base) return; // Exit if elements don't exist
+    
+    const stick = base.querySelector(stickSelector);
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    
     let touchId = null;
     let originX = 0, originY = 0;
+    let stickRadius = base.offsetWidth / 2 - stick.offsetWidth / 2;
+    if(isNaN(stickRadius) || stickRadius <= 0) stickRadius = 35; // Fallback
 
-    base.addEventListener('touchstart', (e) => {
+    // Function to set default idle position
+    function setDefaultPosition() {
+        if (visibleIdle && isMobileMode) { // Only show if mobile mode is on
+            base.style.display = 'flex';
+            base.style.left = defaultPos.left || 'auto';
+            base.style.top = defaultPos.top || 'auto';
+            base.style.bottom = defaultPos.bottom || 'auto';
+            base.style.right = defaultPos.right || 'auto';
+        } else {
+            base.style.display = 'none';
+        }
+    }
+    
+    // Set initial state
+    setDefaultPosition();
+    // Re-check visibility when mobile mode is toggled
+    document.body.addEventListener('click', () => {
+        if(gameState === 'playing' || gameState === 'menu') setDefaultPosition();
+    });
+
+
+    const moveHandler = (e) => {
+        if (touchId === null) return;
+        e.preventDefault();
+        let touch = null;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                touch = e.changedTouches[i];
+                break;
+            }
+        }
+        if (touch) {
+            handleMove(touch.clientX, touch.clientY);
+        }
+    };
+
+    const endHandler = (e) => {
+        let touchFound = false;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                touchFound = true;
+                break;
+            }
+        }
+
+        if (touchFound) {
+            touchId = null;
+            resetStick();
+            setDefaultPosition(); // Reset to idle state
+            window.removeEventListener('touchmove', moveHandler);
+            window.removeEventListener('touchend', endHandler);
+            window.removeEventListener('touchcancel', endHandler);
+        }
+    };
+
+    area.addEventListener('touchstart', (e) => {
+        if (touchId !== null) return; // Already tracking a touch
         e.preventDefault();
         const touch = e.changedTouches[0];
         touchId = touch.identifier;
-        const rect = base.getBoundingClientRect();
-        originX = rect.left + rect.width / 2;
-        originY = rect.top + rect.height / 2;
-        handleMove(touch.clientX, touch.clientY);
-    }, {passive: false});
+        
+        const wrapperRect = canvasWrapper.getBoundingClientRect();
 
-    base.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-                handleMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
-                break;
-            }
-        }
-    }, {passive: false});
+        // Position the visual base centered on the touch start
+        let baseX = touch.clientX - wrapperRect.left - base.offsetWidth / 2;
+        let baseY = touch.clientY - wrapperRect.top - base.offsetHeight / 2;
 
-    const endHandler = (e) => {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-                touchId = null;
-                resetStick();
-                break;
-            }
-        }
-    };
-    base.addEventListener('touchend', endHandler);
-    base.addEventListener('touchcancel', endHandler);
+        // Clamp base position to be within the canvas wrapper
+        baseX = Math.max(0, Math.min(wrapperRect.width - base.offsetWidth, baseX));
+        baseY = Math.max(0, Math.min(wrapperRect.height - base.offsetHeight, baseY));
+
+        base.style.left = baseX + 'px';
+        base.style.top = baseY + 'px';
+        base.style.display = 'flex';
+        
+        originX = touch.clientX;
+        originY = touch.clientY;
+        
+        handleMove(touch.clientX, touch.clientY); // Initial move
+
+        window.addEventListener('touchmove', moveHandler, {passive: false});
+        window.addEventListener('touchend', endHandler, {passive: false});
+        window.addEventListener('touchcancel', endHandler, {passive: false});
+
+    }, {passive: false});
 
     function handleMove(clientX, clientY) {
-        const dx = clientX - originX;
-        const dy = clientY - originY;
-        const dist = Math.min(Math.hypot(dx, dy), 35); // Max stick movement radius
+        let dx = clientX - originX;
+        let dy = clientY - originY;
+        if (invertY) dy = -dy;
+        
+        const dist = Math.min(Math.hypot(dx, dy), stickRadius);
         const angle = Math.atan2(dy, dx);
         
         const moveX = Math.cos(angle) * dist;
         const moveY = Math.sin(angle) * dist;
         
-        stick.style.transform = `translate(${moveX}px, ${moveY}px)`;
+        stick.style.transform = `translate(${moveX}px, ${invertY ? -moveY : moveY}px)`;
         
-        // Map to keys
-        const keysObj = playerSettings.keybinds[playerId - 1]; // P1=0, P2=1
-        
-        // Reset all direction keys for this player first
-        keys[keysObj.left] = false; keys[keysObj.right] = false;
-        keys[keysObj.up] = false; keys[keysObj.down] = false;
-        
-        // Thresholds for directional input
-        if (dx < -10) keys[keysObj.left] = true;
-        if (dx > 10) keys[keysObj.right] = true;
-        if (dy < -10) keys[keysObj.up] = true;
-        if (dy > 10) keys[keysObj.down] = true;
+        joystickInputs[playerId] = {
+            active: true,
+            angle: angle // Store the raw radian angle
+        };
     }
 
     function resetStick() {
         stick.style.transform = `translate(0px, 0px)`;
-        const keysObj = playerSettings.keybinds[playerId - 1];
-        keys[keysObj.left] = false; keys[keysObj.right] = false;
-        keys[keysObj.up] = false; keys[keysObj.down] = false;
+        joystickInputs[playerId] = { active: false, angle: 0 };
     }
 }
+
 
 function setupButton(btnId, keyName) {
     const btn = document.getElementById(btnId);
     if(!btn) return;
     
-    const press = (e) => { e.preventDefault(); keys[keyName] = true; };
-    const release = (e) => { e.preventDefault(); keys[keyName] = false; };
+    let touchId = null;
+    
+    const press = (e) => { 
+        e.preventDefault(); 
+        if (touchId === null) {
+            touchId = e.changedTouches[0].identifier;
+            keys[keyName] = true; 
+        }
+    };
+    const release = (e) => { 
+        e.preventDefault(); 
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                touchId = null;
+                keys[keyName] = false; 
+                break;
+            }
+        }
+    };
     
     btn.addEventListener('touchstart', press, {passive:false});
     btn.addEventListener('touchend', release);
@@ -600,15 +699,15 @@ function setupButton(btnId, keyName) {
 // Init Controls
 window.addEventListener('load', () => {
     // Single Player / VS Computer setup
-    setupJoystick('joystick-left', 1); // Controls P1
+    setupJoystick('joystick-area-left', 'joystick-left', '.joystick-stick', 1, false, true, { bottom: '30px', left: '30px' });
     setupButton('btn-boost', 'ShiftLeft'); // P1 Boost
     setupButton('btn-teleport', 'KeyT'); // P1 Teleport
 
-    // 1v1 Split setup
-    setupJoystick('p1-joystick', 1);
+    // 1v1 Split setup (Side-by-Side)
+    setupJoystick('p1-joystick-area', 'p1-joystick', '.joystick-stick', 1, false, false); // P1, NOT inverted, not visible
     setupButton('p1-boost', 'ShiftLeft');
     
-    setupJoystick('p2-joystick', 2);
+    setupJoystick('p2-joystick-area', 'p2-joystick', '.joystick-stick', 2, false, false); // P2, NOT inverted, not visible
     setupButton('p2-boost', 'ShiftRight');
 });
 
@@ -1020,22 +1119,53 @@ class Car {
         if (this.isStunned) return;
        
         this.throttleDirection=0; let accelerationForce = 0;
-       
-        if (keys[this.controls['left']]) this.angle=(this.angle+this.rotationSpeed)%360;
-        if (keys[this.controls['right']]) this.angle=(this.angle-this.rotationSpeed)%360;
-       
-        if (keys[this.controls['up']]) {accelerationForce=this.acceleration;this.throttleDirection=1;}
-        if (keys[this.controls['down']]) {
-            let revMult = playerUpgrades.reverseKing ? 1.5 : 0.7; 
-            let isBraking = keys[this.controls['down']] && Math.abs(this.speed) > 0.1;
-            let brakePower = (playerUpgrades.brake_evo ? 50.0 : (playerUpgrades.brake ? 4.0 : 1.0)); 
+
+        const joyInput = joystickInputs[this.playerId];
+
+        if (isMobileMode && joyInput && joyInput.active) {
+            // --- New Joystick Logic ---
+            let targetAngleRad = joyInput.angle;
+            let targetAngleDeg = (-targetAngleRad * 180 / Math.PI + 360) % 360;
+
+            let angleDiff = targetAngleDeg - this.angle;
+            if(angleDiff > 180) angleDiff -= 360;
+            if(angleDiff < -180) angleDiff += 360;
+
+            let rotSpeed = this.rotationSpeed * 1.5; // Make joystick turning a bit faster
             
-            if (isBraking && this.speed > 0.1) {
-                 accelerationForce = -this.acceleration * brakePower;
+            if (angleDiff > rotSpeed) {
+                this.angle = (this.angle + rotSpeed) % 360;
+            } else if (angleDiff < -rotSpeed) {
+                this.angle = (this.angle - rotSpeed) % 360;
             } else {
-                 accelerationForce = -this.acceleration * revMult;
+                this.angle = targetAngleDeg;
             }
-            this.throttleDirection=-1;
+            
+            // Always apply forward throttle
+            accelerationForce = this.acceleration;
+            this.throttleDirection = 1;
+            
+            // --- End New Joystick Logic ---
+
+        } else {
+            // --- Original Keyboard Logic ---
+            if (keys[this.controls['left']]) this.angle=(this.angle+this.rotationSpeed)%360;
+            if (keys[this.controls['right']]) this.angle=(this.angle-this.rotationSpeed)%360;
+           
+            if (keys[this.controls['up']]) {accelerationForce=this.acceleration;this.throttleDirection=1;}
+            if (keys[this.controls['down']]) {
+                let revMult = playerUpgrades.reverseKing ? 1.5 : 0.7; 
+                let isBraking = keys[this.controls['down']] && Math.abs(this.speed) > 0.1;
+                let brakePower = (playerUpgrades.brake_evo ? 50.0 : (playerUpgrades.brake ? 4.0 : 1.0)); 
+                
+                if (isBraking && this.speed > 0.1) {
+                     accelerationForce = -this.acceleration * brakePower;
+                } else {
+                     accelerationForce = -this.acceleration * revMult;
+                }
+                this.throttleDirection=-1;
+            }
+            // --- End Original Keyboard Logic ---
         }
         
         let tpTime = playerUpgrades.platinumTeleport_evo ? 1.0 : 3.0; 
@@ -1988,6 +2118,11 @@ function drawSettingsMenu() {
     const k = (p, action) => playerSettings.keybinds[p-1][action];
     const originalSettings = JSON.parse(JSON.stringify(playerSettings));
 
+    // --- Added for Mobile Mode Toggle ---
+    let mobileModeBtnText = isMobileMode ? '📱 Mobile Mode (ON)' : '💻 PC Mode (OFF)';
+    let mobileModeBtnClass = isMobileMode ? 'bg-pink-600 hover:bg-pink-500' : 'bg-gray-600 hover:bg-gray-500';
+    // --- End Added ---
+
     overlay.innerHTML = `
         <div class="text-center bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-4xl pointer-events-auto border border-gray-600 overflow-y-auto max-h-[90vh]">
             <h1 class="text-3xl font-bold mb-4 text-white">Settings</h1>
@@ -2006,6 +2141,14 @@ function drawSettingsMenu() {
                         <p class="text-sm text-gray-400 mb-2">Test Area (Use A/D)</p>
                         <canvas id="testCanvas" width="300" height="200" class="bg-gray-900 rounded border border-gray-600"></canvas>
                     </div>
+                    <!-- Added Mobile Toggle Button -->
+                    <div class="mt-6">
+                        <h2 class="text-xl font-bold text-yellow-400 mb-2">Mode</h2>
+                        <button id="mobile-toggle-btn-settings" class="w-full px-4 py-3 ${mobileModeBtnClass} text-white font-bold rounded-lg transition duration-200 shadow-md">
+                            ${mobileModeBtnText}
+                        </button>
+                    </div>
+                    <!-- End Added Button -->
                 </div>
                 <div class="flex-1 bg-gray-700 p-4 rounded-lg">
                     <div class="flex justify-between items-center mb-4">
@@ -2095,6 +2238,8 @@ function drawSettingsMenu() {
     document.getElementById('discard-settings-btn').onclick = () => {
         playerSettings = JSON.parse(JSON.stringify(originalSettings)); cancelAnimationFrame(testLoopId); drawMainMenu();
     };
+    // --- Add listener for new mobile button ---
+    document.getElementById('mobile-toggle-btn-settings').onclick = toggleMobileMode;
 }
 
 function drawGameSettingsMenu(mode) {
@@ -2319,9 +2464,13 @@ function startGame(mode, endType='timed', loadSave = false) {
         } else {
             singleLayout.style.display = 'block';
             splitLayout.style.display = 'none';
+            // Make sure single player joystick is visible
+            document.getElementById('joystick-left').style.display = 'flex';
         }
     } else {
         controls.style.display = 'none';
+        // Hide joysticks if not mobile
+        document.getElementById('joystick-left').style.display = 'none';
     }
 
     if (endType === 'forever' && !loadSave) { 
