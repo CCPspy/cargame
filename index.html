@@ -12,12 +12,13 @@
             background-color: #111827;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Align to top for scrolling */
+            align-items: center; /* Center container */
             min-height: 100vh;
             margin: 0;
-            padding: 1rem;
-            overflow: auto; /* Allow scrolling for the whole page if needed */
-            touch-action: none; /* Prevent browser zooming/scrolling */
+            padding: 1rem; /* Padding around container */
+            overflow: hidden; /* PREVENT body scroll */
+            touch-action: none; 
+            box-sizing: border-box; /* Include padding in height calc */
         }
         
         body.fullscreen-active { padding: 0; overflow: hidden; }
@@ -25,9 +26,11 @@
         #game-container {
             width: 100%;
             max-width: 1000px; 
+            max-height: calc(100vh - 2rem); /* Constrain height to viewport minus padding */
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             border-radius: 1rem;
-            overflow: hidden;
+            overflow-y: auto; /* Allow container to scroll */
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -38,6 +41,7 @@
 
         #game-container.fullscreen-active {
             width: 100vw; height: 100vh; max-width: none;
+            max-height: 100vh; /* Full height in fullscreen */
             border-radius: 0; padding: 1rem; box-sizing: border-box;
             justify-content: space-between;
         }
@@ -60,6 +64,7 @@
             height: auto;
             touch-action: none; 
             overflow: hidden;
+            border-radius: 0.75rem; /* Added radius here */
         }
 
         #game-container.fullscreen-active #canvas-wrapper {
@@ -84,9 +89,9 @@
             pointer-events: none; 
             transition: opacity 0.3s;
             z-index: 50;
-            overflow-y: auto; /* ADDED: Makes overlay scrollable */
-            padding: 1rem; /* ADDED: Prevents content from touching edges */
-            box-sizing: border-box; /* ADDED: Includes padding in size calculation */
+            overflow-y: auto; /* Makes overlay (like settings) scrollable */
+            padding: 1rem; /* Prevents content from touching edges */
+            box-sizing: border-box; /* Includes padding in size calculation */
         }
         
         #overlay.visible { opacity: 1; pointer-events: auto; }
@@ -165,7 +170,7 @@
         .menu-selected {
             border: 3px solid #fcd34d;
             box-shadow: 0 0 15px rgba(252, 211, 77, 0.6);
-            transform: scale(1.02);
+            /* transform: scale(1.02); */ /* REMOVED to prevent shaking */
         }
         #menu-options > div, #upgrade-options > div, .clickable-option {
              cursor: pointer; transition: all 0.2s;
@@ -197,7 +202,7 @@
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.9); padding: 15px 25px; border-radius: 10px;
             color: white; font-weight: bold; pointer-events: none;
-            animation: fadeOut 3s forwards; z-index: 60;
+            animation: fadeOut 3s forwards; z-index: 100; /* Increased z-index */
             border: 2px solid #fcd34d; box-shadow: 0 0 15px rgba(0,0,0,0.5);
             text-align: center;
         }
@@ -374,7 +379,7 @@ const COLOR_FIELD = '#2b2f3d';
 
 // --- Mobile Mode State ---
 // Detect mobile/tablet devices on load
-let isMobileMode = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /iPad/i.test(navigator.userAgent));
+let isMobileMode = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /iPad/i.test(navigator.userAgent) || /iPhone|iPod|Android/i.test(navigator.userAgent));
 
 // --- Settings & Defaults ---
 const defaultKeybinds = [
@@ -2121,7 +2126,10 @@ function drawMainMenu() {
                 <div class="p-3 rounded-lg ${multiplayer2v2Style}" ${multiplayer2v2Action}>${multiplayer2v2Text}</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="select-mode-vs-computer">Vs Computer</div>
                 <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="play-online">Play Online</div>
-                <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="settings">Settings</div>
+                <div> <!-- Wrapper div -->
+                    <div class="p-3 bg-gray-600 rounded-lg hover:bg-gray-500 clickable-option" data-action="settings">Settings</div>
+                    <p class="text-xs text-gray-400 mt-1">Toggle PC/Mobile mode here</p>
+                </div>
             </div>
         </div>
     `;
@@ -2146,7 +2154,7 @@ function drawSettingsMenu() {
     // --- End Added ---
 
     overlay.innerHTML = `
-        <div class="text-center bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-4xl pointer-events-auto border border-gray-600 overflow-y-auto max-h-[90vh]">
+        <div class="text-center bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-4xl pointer-events-auto border border-gray-600">
             <h1 class="text-3xl font-bold mb-4 text-white">Settings</h1>
             <div class="flex flex-col md:flex-row gap-8 text-left">
                 <div class="flex-1 bg-gray-700 p-4 rounded-lg">
@@ -2356,7 +2364,7 @@ function drawUpgradeMenu() {
         option.addEventListener('click', () => handleUpgradeSelection(index));
         option.addEventListener('mouseenter', () => updateMenuSelectionUI('upgrade-options', index, 'upgrade'));
     });
-    selectedMenuIndex = 0; updateMenuSelectionUI('upgrade-options', selectedUpgradeIndex, 'upgrade');
+    selectedUpgradeIndex = 0; updateMenuSelectionUI('upgrade-options', selectedUpgradeIndex, 'upgrade');
 }
 
 function drawGameOver(reason = null) {
