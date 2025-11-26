@@ -22,13 +22,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Use dvh for dynamic viewport height */
+            /* Use dvh for dynamic viewport height (accounts for mobile browser bars) */
             min-height: 100vh;
             min-height: 100dvh; 
             margin: 0;
             
-            /* UPDATED: Increased padding to 40px on all sides for equal spacing from edges */
-            padding: max(40px, var(--sat)) max(40px, var(--sar)) max(40px, var(--sab)) max(40px, var(--sal));
+            /* Increased padding to ensure UI doesn't touch screen edges, especially on iPad */
+            padding: max(20px, var(--sat)) max(20px, var(--sar)) max(20px, var(--sab)) max(20px, var(--sal));
             
             overflow: hidden;
             touch-action: none; 
@@ -41,8 +41,9 @@
             width: 100%;
             max-width: 1000px; 
             
-            /* UPDATED: Height constraint accounts for the larger 40px+40px padding */
-            max-height: calc(100dvh - 80px - var(--sat) - var(--sab));
+            /* Strict height constraint to leave space for iPad/Mobile UI */
+            /* 100dvh minus the body padding we set above */
+            max-height: calc(100dvh - 40px - var(--sat) - var(--sab));
             
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             border-radius: 1rem;
@@ -263,28 +264,24 @@
                     <div id="btn-teleport" class="touch-control action-btn teleport-btn">WARP</div>
                 </div>
 
-                <!-- 1v1 Split Layout (Side-by-Side) - Fixed visibility & positioning -->
+                <!-- 1v1 Split Layout (Side-by-Side) -->
                 <div id="split-player-controls" class="w-full h-full relative hidden">
                     
                     <!-- Player 1 (Blue - Left Side) -->
-                    <!-- Area covers entire left half. Joystick at bottom-left corner. -->
-                    <div id="p1-joystick-area" class="touch-control-area" style="position: absolute; bottom: 0; left: 0; width: 50%; height: 100%;">
+                    <div id="p1-joystick-area" class="touch-control-area" style="position: absolute; top: 0; left: 0; width: 50%; height: 50%;">
                         <div id="p1-joystick" class="touch-control joystick-base">
                             <div class="joystick-stick"></div>
                         </div>
                     </div>
-                    <!-- P1 Boost: Bottom-right of left half (Near center) -->
-                    <div id="p1-boost" class="touch-control action-btn" style="position: absolute; bottom: 30px; left: calc(50% - 120px); width: 90px; height: 90px; background:rgba(59,130,246,0.4);">BOOST</div>
+                    <div id="p1-boost" class="touch-control action-btn" style="position: absolute; bottom: 30px; left: 30px; width: 90px; height: 90px; background:rgba(59,130,246,0.4);">BOOST</div>
 
                     <!-- Player 2 (Red - Right Side) -->
-                    <!-- Area covers entire right half. Joystick at bottom-right corner. -->
-                    <div id="p2-joystick-area" class="touch-control-area" style="position: absolute; bottom: 0; right: 0; width: 50%; height: 100%;">
+                    <div id="p2-joystick-area" class="touch-control-area" style="position: absolute; bottom: 0; right: 0; width: 50%; height: 50%;">
                          <div id="p2-joystick" class="touch-control joystick-base">
                             <div class="joystick-stick"></div>
                          </div>
                     </div>
-                    <!-- P2 Boost: Bottom-left of right half (Near center) -->
-                    <div id="p2-boost" class="touch-control action-btn" style="position: absolute; bottom: 30px; right: calc(50% - 120px); width: 90px; height: 90px; background:rgba(239,68,68,0.4);">BOOST</div>
+                    <div id="p2-boost" class="touch-control action-btn" style="position: absolute; top: 30px; right: 30px; width: 90px; height: 90px; background:rgba(239,68,68,0.4);">BOOST</div>
                 </div>
             </div>
         </div>
@@ -607,15 +604,10 @@ function setupJoystick(areaId, baseId, stickSelector, playerId, invertY = false,
     function setDefaultPosition() {
         if (visibleIdle && isMobileMode) { // Only show if mobile mode is on
             base.style.display = 'flex';
-            // Clear all positioning first to avoid conflicts
-            base.style.left = ''; base.style.right = ''; base.style.top = ''; base.style.bottom = '';
-            
-            // Apply new positioning
-            if(defaultPos.left) base.style.left = defaultPos.left;
-            if(defaultPos.right) base.style.right = defaultPos.right;
-            if(defaultPos.top) base.style.top = defaultPos.top;
-            if(defaultPos.bottom) base.style.bottom = defaultPos.bottom;
-            
+            base.style.left = defaultPos.left || 'auto';
+            base.style.top = defaultPos.top || 'auto';
+            base.style.bottom = defaultPos.bottom || 'auto';
+            base.style.right = defaultPos.right || 'auto';
         } else {
             base.style.display = 'none';
         }
@@ -679,11 +671,8 @@ function setupJoystick(areaId, baseId, stickSelector, playerId, invertY = false,
         baseX = Math.max(0, Math.min(wrapperRect.width - base.offsetWidth, baseX));
         baseY = Math.max(0, Math.min(wrapperRect.height - base.offsetHeight, baseY));
 
-        // When active, use absolute positioning relative to canvas wrapper
         base.style.left = baseX + 'px';
         base.style.top = baseY + 'px';
-        base.style.right = 'auto'; // Clear these
-        base.style.bottom = 'auto';
         base.style.display = 'flex';
         
         originX = touch.clientX;
@@ -760,14 +749,10 @@ window.addEventListener('load', () => {
     setupButton('btn-teleport', 'KeyT'); // P1 Teleport
 
     // 1v1 Split setup (Side-by-Side)
-    // Updated: Now P1 uses left half, P2 uses right half. Both joysticks visible.
-    
-    // P1: Joystick Bottom-Left. 
-    setupJoystick('p1-joystick-area', 'p1-joystick', '.joystick-stick', 1, false, true, { bottom: '30px', left: '30px' });
+    setupJoystick('p1-joystick-area', 'p1-joystick', '.joystick-stick', 1, false, false); // P1, NOT inverted, not visible
     setupButton('p1-boost', 'ShiftLeft');
     
-    // P2: Joystick Bottom-Right.
-    setupJoystick('p2-joystick-area', 'p2-joystick', '.joystick-stick', 2, false, true, { bottom: '30px', right: '30px' });
+    setupJoystick('p2-joystick-area', 'p2-joystick', '.joystick-stick', 2, false, false); // P2, NOT inverted, not visible
     setupButton('p2-boost', 'ShiftRight');
 });
 
