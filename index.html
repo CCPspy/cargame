@@ -12,11 +12,11 @@
             background-color: #111827;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Align to top for scrolling */
             min-height: 100vh;
             margin: 0;
             padding: 1rem;
-            overflow-y: auto;
+            overflow: auto; /* Allow scrolling for the whole page if needed */
             touch-action: none; /* Prevent browser zooming/scrolling */
         }
         
@@ -33,7 +33,7 @@
             align-items: center;
             background-color: #1f2937;
             transition: all 0.3s ease;
-            position: relative;
+            position: relative; /* This is the anchor for the overlay */
         }
 
         #game-container.fullscreen-active {
@@ -51,7 +51,16 @@
             flex-grow: 1; height: 0; min-height: 0; margin: 10px 0;
         }
 
-        #canvas-wrapper { position: relative; width: 1000px; height: 600px; touch-action: none; overflow: hidden;}
+        /* Updated for responsiveness */
+        #canvas-wrapper { 
+            position: relative; 
+            width: 100%;
+            max-width: 1000px;
+            aspect-ratio: 1000 / 600;
+            height: auto;
+            touch-action: none; 
+            overflow: hidden;
+        }
 
         #game-container.fullscreen-active #canvas-wrapper {
             width: auto; height: auto; max-width: 100%; max-height: 100%;
@@ -64,11 +73,20 @@
         }
 
         #overlay {
-            position: absolute; inset: 0; border-radius: 0.75rem;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; 
+            inset: 0; 
+            border-radius: 1rem; /* Match game-container */
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
             background-color: rgba(17, 24, 39, 0.95);
-            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s;
             z-index: 50;
+            overflow-y: auto; /* ADDED: Makes overlay scrollable */
+            padding: 1rem; /* ADDED: Prevents content from touching edges */
+            box-sizing: border-box; /* ADDED: Includes padding in size calculation */
         }
         
         #overlay.visible { opacity: 1; pointer-events: auto; }
@@ -253,10 +271,13 @@
                 </div>
             </div>
 
-            <div id="overlay"></div>
-            <div id="notifications"></div>
+            <!-- MOVED OVERLAY AND NOTIFICATIONS from here -->
         </div>
     </div>
+
+    <!-- MOVED OVERLAY AND NOTIFICATIONS to here, so they cover the whole game-container -->
+    <div id="overlay"></div>
+    <div id="notifications"></div>
 
     <!-- HUD for Forever Mode -->
     <div id="forever-hud" class="hidden mt-2 p-3 bg-gray-800 rounded-lg border border-cyan-500/30 shadow-lg grid grid-cols-12 gap-4 items-center">
@@ -352,7 +373,8 @@ const COLOR_CYAN = '#00fff4';
 const COLOR_FIELD = '#2b2f3d';
 
 // --- Mobile Mode State ---
-let isMobileMode = false;
+// Detect mobile/tablet devices on load
+let isMobileMode = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /iPad/i.test(navigator.userAgent));
 
 // --- Settings & Defaults ---
 const defaultKeybinds = [
@@ -2334,7 +2356,7 @@ function drawUpgradeMenu() {
         option.addEventListener('click', () => handleUpgradeSelection(index));
         option.addEventListener('mouseenter', () => updateMenuSelectionUI('upgrade-options', index, 'upgrade'));
     });
-    selectedUpgradeIndex = 0; updateMenuSelectionUI('upgrade-options', selectedUpgradeIndex, 'upgrade');
+    selectedMenuIndex = 0; updateMenuSelectionUI('upgrade-options', selectedUpgradeIndex, 'upgrade');
 }
 
 function drawGameOver(reason = null) {
@@ -2556,7 +2578,14 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-window.onload = function () { canvas.width = DEFAULT_WIDTH; canvas.height = DEFAULT_HEIGHT; drawMainMenu(); }
+window.onload = function () { 
+    if (isMobileMode) {
+        document.body.classList.add('mobile-mode');
+    }
+    canvas.width = DEFAULT_WIDTH; 
+    canvas.height = DEFAULT_HEIGHT; 
+    drawMainMenu(); 
+}
 </script>
 </body>
 </html>
